@@ -25,7 +25,9 @@ from utils import validate_url
 log = logging.getLogger('server')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s] %(message)s', datefmt='%H:%M:%S')
 
-OCLAW_HOME = pathlib.Path.home() / '.openclaw'
+OCLAW_HOME = pathlib.Path(os.environ.get('OPENCLAW_HOME', str(pathlib.Path.home() / '.openclaw')))
+GATEWAY_URL = os.environ.get('OPENCLAW_GATEWAY_URL', 'http://127.0.0.1:18789').rstrip('/')
+GATEWAY_TOKEN = os.environ.get('OPENCLAW_GATEWAY_TOKEN', '')
 MAX_REQUEST_BODY = 1 * 1024 * 1024  # 1 MB
 ALLOWED_ORIGIN = None  # Set via --cors; None means restrict to localhost
 _DEFAULT_ORIGINS = {
@@ -110,11 +112,11 @@ def handle_task_action(task_id, action, reason):
 
     if action == 'stop':
         task['state'] = 'Blocked'
-        task['block'] = reason or '皇上叫停'
+        task['block'] = reason or '主人叫停'
         task['now'] = f'⏸️ 已暂停：{reason}'
     elif action == 'cancel':
         task['state'] = 'Cancelled'
-        task['block'] = reason or '皇上取消'
+        task['block'] = reason or '主人取消'
         task['now'] = f'🚫 已取消：{reason}'
     elif action == 'resume':
         # Resume to previous active state or Doing
@@ -127,7 +129,7 @@ def handle_task_action(task_id, action, reason):
 
     task.setdefault('flow_log', []).append({
         'at': now_iso(),
-        'from': '皇上',
+        'from': '主人',
         'to': task.get('org', ''),
         'remark': f'{"⏸️ 叫停" if action == "stop" else "🚫 取消" if action == "cancel" else "▶️ 恢复"}：{reason}'
     })
@@ -135,7 +137,7 @@ def handle_task_action(task_id, action, reason):
     if action == 'resume':
         _scheduler_mark_progress(task, f'恢复到 {task.get("state", "Doing")}')
     else:
-        _scheduler_add_flow(task, f'皇上{action}：{reason or "无"}')
+        _scheduler_add_flow(task, f'主人{action}：{reason or "无"}')
 
     task['updatedAt'] = now_iso()
 
@@ -558,16 +560,16 @@ def handle_create_task(title, org='中书省', official='中书令', priority='n
         nums = [int(tid.split('-')[-1]) for tid in today_ids if tid.split('-')[-1].isdigit()]
         seq = max(nums) + 1 if nums else 1
     task_id = f'JJC-{today}-{seq:03d}'
-    # 正确流程起点：皇上 -> 太子分拣
+    # 正确流程起点：主人 -> 皇后分拣
     # target_dept 记录模板建议的最终执行部门（仅供尚书省派发参考）
-    initial_org = '太子'
+    initial_org = '皇后'
     new_task = {
         'id': task_id,
         'title': title,
         'official': official,
         'org': initial_org,
-        'state': 'Taizi',
-        'now': '等待太子接旨分拣',
+        'state': 'Huanghou',
+        'now': '等待皇后接旨分拣',
         'eta': '-',
         'block': '无',
         'output': '',
@@ -577,7 +579,7 @@ def handle_create_task(title, org='中书省', official='中书令', priority='n
         'templateParams': params or {},
         'flow_log': [{
             'at': now_iso(),
-            'from': '皇上',
+            'from': '主人',
             'to': initial_org,
             'remark': f'下旨：{title}'
         }],
@@ -594,9 +596,9 @@ def handle_create_task(title, org='中书省', official='中书令', priority='n
     save_tasks(tasks)
     log.info(f'创建任务: {task_id} | {title[:40]}')
 
-    dispatch_for_state(task_id, new_task, 'Taizi', trigger='imperial-edict')
+    dispatch_for_state(task_id, new_task, 'Huanghou', trigger='imperial-edict')
 
-    return {'ok': True, 'taskId': task_id, 'message': f'旨意 {task_id} 已下达，正在派发给太子'}
+    return {'ok': True, 'taskId': task_id, 'message': f'旨意 {task_id} 已下达，正在派发给皇后'}
 
 
 def handle_review_action(task_id, action, comment=''):
@@ -621,7 +623,7 @@ def handle_review_action(task_id, action, comment=''):
             task['state'] = 'Done'
             task['now'] = '御批通过，任务完成'
             remark = f'✅ 御批准奏：{comment or "审查通过"}'
-            to_dept = '皇上'
+            to_dept = '主人'
     elif action == 'reject':
         round_num = (task.get('review_round') or 0) + 1
         task['review_round'] = round_num
@@ -634,7 +636,7 @@ def handle_review_action(task_id, action, comment=''):
 
     task.setdefault('flow_log', []).append({
         'at': now_iso(),
-        'from': '门下省' if task.get('state') != 'Done' else '皇上',
+        'from': '门下省' if task.get('state') != 'Done' else '主人',
         'to': to_dept,
         'remark': remark
     })
@@ -655,7 +657,7 @@ def handle_review_action(task_id, action, comment=''):
 # ══ Agent 在线状态检测 ══
 
 _AGENT_DEPTS = [
-    {'id':'taizi',   'label':'太子',  'emoji':'🤴', 'role':'太子',     'rank':'储君'},
+    {'id':'huanghou', 'label':'皇后',  'emoji':'👑', 'role':'皇后',     'rank':'皇后'},
     {'id':'zhongshu','label':'中书省','emoji':'📜', 'role':'中书令',   'rank':'正一品'},
     {'id':'menxia',  'label':'门下省','emoji':'🔍', 'role':'侍中',     'rank':'正一品'},
     {'id':'shangshu','label':'尚书省','emoji':'📮', 'role':'尚书令',   'rank':'正一品'},
@@ -670,23 +672,35 @@ _AGENT_DEPTS = [
 
 
 def _check_gateway_alive():
-    """检测 Gateway 进程是否在运行。"""
-    try:
-        result = subprocess.run(['pgrep', '-f', 'openclaw-gateway'],
-                                capture_output=True, text=True, timeout=5)
-        return result.returncode == 0
-    except Exception:
-        return False
+    """检测 Gateway 是否可达（通过 HTTP 探测，兼容 Docker 和本地环境）。"""
+    return _check_gateway_probe()
 
 
 def _check_gateway_probe():
-    """通过 HTTP probe 检测 Gateway 是否响应。"""
+    """通过 HTTP probe 检测 Gateway 是否响应，地址从 OPENCLAW_GATEWAY_URL 读取。"""
     try:
-        from urllib.request import urlopen
-        resp = urlopen('http://127.0.0.1:18789/', timeout=3)
+        resp = urlopen(f'{GATEWAY_URL}/', timeout=3)
         return resp.status == 200
     except Exception:
         return False
+
+
+def _gateway_agent_request(agent_id, message, timeout=130):
+    """通过 Gateway HTTP API 派发 Agent 任务，替代 openclaw CLI 调用。"""
+    req_data = json.dumps({'model': 'openclaw', 'input': message}).encode()
+    headers = {
+        'Content-Type': 'application/json',
+        'x-openclaw-agent-id': agent_id,
+    }
+    if GATEWAY_TOKEN:
+        headers['Authorization'] = f'Bearer {GATEWAY_TOKEN}'
+    req = Request(f'{GATEWAY_URL}/v1/responses', data=req_data, headers=headers)
+    try:
+        resp = urlopen(req, timeout=timeout)
+        body = resp.read().decode()
+        return {'ok': resp.status == 200, 'status': resp.status, 'stdout': body[:5000]}
+    except Exception as e:
+        return {'ok': False, 'error': str(e), 'stdout': '', 'status': -1}
 
 
 def _get_agent_session_status(agent_id):
@@ -833,22 +847,20 @@ def wake_agent(agent_id, message=''):
 
     def do_wake():
         try:
-            cmd = ['openclaw', 'agent', '--agent', runtime_id, '-m', msg, '--timeout', '120']
             log.info(f'🔔 唤醒 {agent_id}...')
-            # 带重试（最多2次）
             for attempt in range(1, 3):
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=130)
-                if result.returncode == 0:
-                    log.info(f'✅ {agent_id} 已唤醒')
-                    return
-                err_msg = result.stderr[:200] if result.stderr else result.stdout[:200]
-                log.warning(f'⚠️ {agent_id} 唤醒失败(第{attempt}次): {err_msg}')
+                try:
+                    result = _gateway_agent_request(runtime_id, msg, timeout=130)
+                    if result['ok']:
+                        log.info(f'✅ {agent_id} 已唤醒')
+                        return
+                    log.warning(f'⚠️ {agent_id} 唤醒失败(第{attempt}次): {result.get("error", "")[:200]}')
+                except Exception as e:
+                    log.warning(f'⚠️ {agent_id} 唤醒失败(第{attempt}次): {e}')
                 if attempt < 2:
                     import time
                     time.sleep(5)
             log.error(f'❌ {agent_id} 唤醒最终失败')
-        except subprocess.TimeoutExpired:
-            log.error(f'❌ {agent_id} 唤醒超时(130s)')
         except Exception as e:
             log.warning(f'⚠️ {agent_id} 唤醒异常: {e}')
     threading.Thread(target=do_wake, daemon=True).start()
@@ -860,7 +872,7 @@ def wake_agent(agent_id, message=''):
 
 # 状态 → agent_id 映射
 _STATE_AGENT_MAP = {
-    'Taizi': 'taizi',
+    'Huanghou': 'huanghou',
     'Zhongshu': 'zhongshu',
     'Menxia': 'menxia',
     'Assigned': 'shangshu',
@@ -918,7 +930,7 @@ def _ensure_scheduler(task):
 def _scheduler_add_flow(task, remark, to=''):
     task.setdefault('flow_log', []).append({
         'at': now_iso(),
-        'from': '太子调度',
+        'from': '皇后调度',
         'to': to or task.get('org', ''),
         'remark': f'🧭 {remark}'
     })
@@ -992,12 +1004,12 @@ def handle_scheduler_retry(task_id, reason=''):
     sched = _ensure_scheduler(task)
     sched['retryCount'] = int(sched.get('retryCount') or 0) + 1
     sched['lastRetryAt'] = now_iso()
-    sched['lastDispatchTrigger'] = 'taizi-retry'
+    sched['lastDispatchTrigger'] = 'huanghou-retry'
     _scheduler_add_flow(task, f'触发重试第{sched["retryCount"]}次：{reason or "超时未推进"}')
     task['updatedAt'] = now_iso()
     save_tasks(tasks)
 
-    dispatch_for_state(task_id, task, state, trigger='taizi-retry')
+    dispatch_for_state(task_id, task, state, trigger='huanghou-retry')
     return {'ok': True, 'message': f'{task_id} 已触发重试派发', 'retryCount': sched['retryCount']}
 
 
@@ -1023,7 +1035,7 @@ def handle_scheduler_escalate(task_id, reason=''):
     save_tasks(tasks)
 
     msg = (
-        f'🧭 太子调度升级通知\n'
+        f'🧭 皇后调度升级通知\n'
         f'任务ID: {task_id}\n'
         f'当前状态: {state}\n'
         f'停滞处理: 请你介入协调推进\n'
@@ -1049,7 +1061,7 @@ def handle_scheduler_rollback(task_id, reason=''):
     old_state = task.get('state', '')
     task['state'] = snap_state
     task['org'] = snapshot.get('org', task.get('org', ''))
-    task['now'] = f'↩️ 太子调度自动回滚：{reason or "恢复到上个稳定节点"}'
+    task['now'] = f'↩️ 皇后调度自动回滚：{reason or "恢复到上个稳定节点"}'
     task['block'] = '无'
     sched['retryCount'] = 0
     sched['escalationLevel'] = 0
@@ -1060,7 +1072,7 @@ def handle_scheduler_rollback(task_id, reason=''):
     save_tasks(tasks)
 
     if snap_state not in _TERMINAL_STATES:
-        dispatch_for_state(task_id, task, snap_state, trigger='taizi-rollback')
+        dispatch_for_state(task_id, task, snap_state, trigger='huanghou-rollback')
 
     return {'ok': True, 'message': f'{task_id} 已回滚到 {snap_state}'}
 
@@ -1103,7 +1115,7 @@ def handle_scheduler_scan(threshold_sec=180):
         if retry_count < max_retry:
             sched['retryCount'] = retry_count + 1
             sched['lastRetryAt'] = now_iso()
-            sched['lastDispatchTrigger'] = 'taizi-scan-retry'
+            sched['lastDispatchTrigger'] = 'huanghou-scan-retry'
             _scheduler_add_flow(task, f'停滞{stalled_sec}秒，触发自动重试第{sched["retryCount"]}次')
             pending_retries.append((task_id, state))
             actions.append({'taskId': task_id, 'action': 'retry', 'stalledSec': stalled_sec})
@@ -1129,7 +1141,7 @@ def handle_scheduler_scan(threshold_sec=180):
                 old_state = state
                 task['state'] = snap_state
                 task['org'] = snapshot.get('org', task.get('org', ''))
-                task['now'] = '↩️ 太子调度自动回滚到稳定节点'
+                task['now'] = '↩️ 皇后调度自动回滚到稳定节点'
                 task['block'] = '无'
                 sched['retryCount'] = 0
                 sched['escalationLevel'] = 0
@@ -1146,11 +1158,11 @@ def handle_scheduler_scan(threshold_sec=180):
     for task_id, state in pending_retries:
         retry_task = next((t for t in tasks if t.get('id') == task_id), None)
         if retry_task:
-            dispatch_for_state(task_id, retry_task, state, trigger='taizi-scan-retry')
+            dispatch_for_state(task_id, retry_task, state, trigger='huanghou-scan-retry')
 
     for task_id, state, target, target_label, stalled_sec in pending_escalates:
         msg = (
-            f'🧭 太子调度升级通知\n'
+            f'🧭 皇后调度升级通知\n'
             f'任务ID: {task_id}\n'
             f'当前状态: {state}\n'
             f'已停滞: {stalled_sec} 秒\n'
@@ -1162,7 +1174,7 @@ def handle_scheduler_scan(threshold_sec=180):
     for task_id, state in pending_rollbacks:
         rollback_task = next((t for t in tasks if t.get('id') == task_id), None)
         if rollback_task and state not in _TERMINAL_STATES:
-            dispatch_for_state(task_id, rollback_task, state, trigger='taizi-auto-rollback')
+            dispatch_for_state(task_id, rollback_task, state, trigger='huanghou-auto-rollback')
 
     return {
         'ok': True,
@@ -1196,7 +1208,7 @@ def _startup_recover_queued_dispatches():
 
 
 def handle_repair_flow_order():
-    """修复历史任务中首条流转为“皇上->中书省”的错序问题。"""
+    """修复历史任务中首条流转为“主人->中书省”的错序问题。"""
     tasks = load_tasks()
     fixed = 0
     fixed_ids = []
@@ -1210,18 +1222,18 @@ def handle_repair_flow_order():
             continue
 
         first = flow_log[0]
-        if first.get('from') != '皇上' or first.get('to') != '中书省':
+        if first.get('from') != '主人' or first.get('to') != '中书省':
             continue
 
-        first['to'] = '太子'
+        first['to'] = '皇后'
         remark = first.get('remark', '')
         if isinstance(remark, str) and remark.startswith('下旨：'):
             first['remark'] = remark
 
         if task.get('state') == 'Zhongshu' and task.get('org') == '中书省' and len(flow_log) == 1:
-            task['state'] = 'Taizi'
-            task['org'] = '太子'
-            task['now'] = '等待太子接旨分拣'
+            task['state'] = 'Huanghou'
+            task['org'] = '皇后'
+            task['now'] = '等待皇后接旨分拣'
 
         task['updatedAt'] = now_iso()
         fixed += 1
@@ -1868,17 +1880,17 @@ def get_task_activity(task_id):
 
 # 状态推进顺序（手动推进用）
 _STATE_FLOW = {
-    'Pending':  ('Taizi', '皇上', '太子', '待处理旨意转交太子分拣'),
-    'Taizi':    ('Zhongshu', '太子', '中书省', '太子分拣完毕，转中书省起草'),
+    'Pending':  ('Huanghou', '主人', '皇后', '待处理旨意转交皇后分拣'),
+    'Huanghou': ('Zhongshu', '皇后', '中书省', '皇后分拣完毕，转中书省起草'),
     'Zhongshu': ('Menxia', '中书省', '门下省', '中书省方案提交门下省审议'),
     'Menxia':   ('Assigned', '门下省', '尚书省', '门下省准奏，转尚书省派发'),
     'Assigned': ('Doing', '尚书省', '六部', '尚书省开始派发执行'),
     'Next':     ('Doing', '尚书省', '六部', '待执行任务开始执行'),
     'Doing':    ('Review', '六部', '尚书省', '各部完成，进入汇总'),
-    'Review':   ('Done', '尚书省', '太子', '全流程完成，回奏太子转报皇上'),
+    'Review':   ('Done', '尚书省', '皇后', '全流程完成，回奏皇后转报主人'),
 }
 _STATE_LABELS = {
-    'Pending': '待处理', 'Taizi': '太子', 'Zhongshu': '中书省', 'Menxia': '门下省',
+    'Pending': '待处理', 'Huanghou': '皇后', 'Zhongshu': '中书省', 'Menxia': '门下省',
     'Assigned': '尚书省', 'Next': '待执行', 'Doing': '执行中', 'Review': '审查', 'Done': '完成',
 }
 
@@ -1908,8 +1920,8 @@ def dispatch_for_state(task_id, task, new_state, trigger='state-transition'):
 
     # 根据 agent_id 构造针对性消息
     _msgs = {
-        'taizi': (
-            f'📜 皇上旨意需要你处理\n'
+        'huanghou': (
+            f'📜 主人旨意需要你处理\n'
             f'任务ID: {task_id}\n'
             f'旨意: {title}\n'
             f'⚠️ 看板已有此任务，请勿重复创建。直接用 kanban_update.py 更新状态。\n'
@@ -1956,14 +1968,12 @@ def dispatch_for_state(task_id, task, new_state, trigger='state-transition'):
                     'lastDispatchTrigger': trigger,
                 }))
                 return
-            cmd = ['openclaw', 'agent', '--agent', agent_id, '-m', msg,
-                   '--deliver', '--channel', 'feishu', '--timeout', '300']
             max_retries = 2
             err = ''
             for attempt in range(1, max_retries + 1):
                 log.info(f'🔄 自动派发 {task_id} → {agent_id} (第{attempt}次)...')
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=310)
-                if result.returncode == 0:
+                result = _gateway_agent_request(agent_id, msg, timeout=310)
+                if result['ok']:
                     log.info(f'✅ {task_id} 自动派发成功 → {agent_id}')
                     _update_task_scheduler(task_id, lambda t, s: (
                         s.update({
@@ -1976,7 +1986,7 @@ def dispatch_for_state(task_id, task, new_state, trigger='state-transition'):
                         _scheduler_add_flow(t, f'派发成功：{agent_id}（{trigger}）', to=t.get('org', ''))
                     ))
                     return
-                err = result.stderr[:200] if result.stderr else result.stdout[:200]
+                err = result.get('error', '')[:200]
                 log.warning(f'⚠️ {task_id} 自动派发失败(第{attempt}次): {err}')
                 if attempt < max_retries:
                     import time
@@ -1991,18 +2001,6 @@ def dispatch_for_state(task_id, task, new_state, trigger='state-transition'):
                     'lastDispatchError': err,
                 }),
                 _scheduler_add_flow(t, f'派发失败：{agent_id}（{trigger}）', to=t.get('org', ''))
-            ))
-        except subprocess.TimeoutExpired:
-            log.error(f'❌ {task_id} 自动派发超时 → {agent_id}')
-            _update_task_scheduler(task_id, lambda t, s: (
-                s.update({
-                    'lastDispatchAt': now_iso(),
-                    'lastDispatchStatus': 'timeout',
-                    'lastDispatchAgent': agent_id,
-                    'lastDispatchTrigger': trigger,
-                    'lastDispatchError': 'timeout',
-                }),
-                _scheduler_add_flow(t, f'派发超时：{agent_id}（{trigger}）', to=t.get('org', ''))
             ))
         except Exception as e:
             log.warning(f'⚠️ {task_id} 自动派发异常: {e}')
@@ -2347,7 +2345,7 @@ class Handler(BaseHTTPRequestHandler):
         if p == '/api/task-action':
             task_id = body.get('taskId', '').strip()
             action = body.get('action', '').strip()  # stop, cancel, resume
-            reason = body.get('reason', '').strip() or f'皇上从看板{action}'
+            reason = body.get('reason', '').strip() or f'主人从看板{action}'
             if not task_id or action not in ('stop', 'cancel', 'resume'):
                 self.send_json({'ok': False, 'error': 'taskId and action(stop/cancel/resume) required'}, 400)
                 return

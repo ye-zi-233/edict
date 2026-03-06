@@ -35,7 +35,7 @@ log = logging.getLogger("migrate")
 
 # 旧版状态 → Edict TaskState
 STATE_MAP = {
-    "Taizi": TaskState.TAIZI,
+    "Huanghou": TaskState.HUANGHOU,
     "Zhongshu": TaskState.ZHONGSHU,
     "Menxia": TaskState.MENXIA,
     "Assigned": TaskState.ASSIGNED,
@@ -47,15 +47,15 @@ STATE_MAP = {
     "Cancelled": TaskState.CANCELLED,
     "Pending": TaskState.PENDING,
     # Fallbacks
-    "Inbox": TaskState.TAIZI,
-    "": TaskState.TAIZI,
+    "Inbox": TaskState.HUANGHOU,
+    "": TaskState.HUANGHOU,
 }
 
 
 def parse_old_task(old: dict) -> dict:
     """将旧版 task JSON 转换为 Edict Task 参数。"""
-    state_str = old.get("state", "Taizi")
-    state = STATE_MAP.get(state_str, TaskState.TAIZI)
+    state_str = old.get("state", "Huanghou")
+    state = STATE_MAP.get(state_str, TaskState.HUANGHOU)
 
     legacy_id = old.get("id", "")
     title = old.get("title", "未命名任务")

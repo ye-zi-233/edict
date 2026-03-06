@@ -5,11 +5,10 @@
 </p>
 
 <p align="center">
-  <sub>12 AI agents (11 business roles + 1 compatibility role) form the Three Departments & Six Ministries: Crown Prince triages, Planning proposes, Review vetoes, Dispatch assigns, Ministries execute.<br>Built-in <b>institutional review gates</b> that CrewAI doesn't have. A <b>real-time dashboard</b> that AutoGen doesn't have.</sub>
+  <sub>12 AI agents (11 business roles + 1 compatibility role) form the Three Departments & Six Ministries: Queen triages, Planning proposes, Review vetoes, Dispatch assigns, Ministries execute.<br>Built-in <b>institutional review gates</b> that CrewAI doesn't have. A <b>real-time dashboard</b> that AutoGen doesn't have.</sub>
 </p>
 
 <p align="center">
-  <a href="#-demo">🎬 Demo</a> ·
   <a href="#-quick-start">🚀 Quick Start</a> ·
   <a href="#-architecture">🏛️ Architecture</a> ·
   <a href="#-features">📋 Features</a> ·
@@ -28,27 +27,6 @@
 
 ---
 
-## 🎬 Demo
-
-<p align="center">
-  <video src="docs/Agent_video_Pippit_20260225121727.mp4" width="100%" autoplay muted loop playsinline controls>
-    Your browser does not support video playback. See the GIF below or <a href="docs/Agent_video_Pippit_20260225121727.mp4">download the video</a>.
-  </video>
-  <br>
-  <sub>🎥 Full demo: AI Multi-Agent collaboration with Three Departments & Six Ministries</sub>
-</p>
-
-<details>
-<summary>📸 GIF Preview (loads faster)</summary>
-<p align="center">
-  <img src="docs/demo.gif" alt="Edict Demo" width="100%">
-  <br>
-  <sub>Issue edict → Crown Prince triage → Planning → Review → Ministries execute → Report back (30s)</sub>
-</p>
-</details>
-
-> 🐳 **No OpenClaw?** Run `docker run -p 7891:7891 cft0808/edict` to try the full dashboard with simulated data.
-
 ---
 
 ## 💡 The Idea
@@ -56,13 +34,13 @@
 Most multi-agent frameworks let AI agents talk freely, producing opaque results you can't audit or intervene in. **Edict** takes a radically different approach — borrowing the governance system that ran China for 1,400 years:
 
 ```
-You (Emperor) → Crown Prince (Triage) → Planning Dept → Review Dept → Dispatch Dept → 6 Ministries → Report Back
-   皇上              太子               中书省          门下省         尚书省           六部          回奏
+You (Master) → Queen (Triage) → Planning Dept → Review Dept → Dispatch Dept → 6 Ministries → Report Back
+   主人              皇后               中书省          门下省         尚书省           六部          回奏
 ```
 
 This isn't a cute metaphor. It's **real separation of powers** for AI:
 
-- **Crown Prince (太子)** triages messages — casual chat gets auto-replied, real commands become tasks
+- **Queen (皇后)** triages messages — casual chat gets auto-replied, real commands become tasks
 - **Planning (中书省)** breaks your command into actionable sub-tasks
 - **Review (门下省)** audits the plan — can reject and force re-planning
 - **Dispatch (尚书省)** assigns approved tasks to specialist ministries
@@ -86,7 +64,7 @@ This isn't a cute metaphor. It's **real separation of powers** for AI:
 | **Hot-swap LLM models** | ❌ | ❌ | ❌ | **✅ From the dashboard** |
 | **Skill management** | ❌ | ❌ | ❌ | **✅ View / Add skills** |
 | **News aggregation** | ❌ | ❌ | ❌ | **✅ Daily digest + webhook** |
-| **Setup complexity** | Med | High | Med | **Low · One-click / Docker** |
+| **Setup complexity** | Med | High | Med | **Low · Docker Compose** |
 
 > **Core differentiator: Institutional review + Full observability + Real-time intervention**
 
@@ -114,7 +92,7 @@ This is why Edict produces reliable results on complex tasks: there's a mandator
 ## ✨ Features
 
 ### 🏛️ Twelve-Department Agent Architecture
-- **Crown Prince** (太子) message triage — auto-reply casual chat, create tasks for real commands
+- **Queen** (皇后) message triage — auto-reply casual chat, create tasks for real commands
 - **Three Departments** (Planning · Review · Dispatch) for governance
 - **Seven Ministries** (Finance · Docs · Engineering · Compliance · Infrastructure · HR + Briefing) for execution
 - Strict permission matrix — who can message whom is enforced
@@ -182,44 +160,33 @@ This is why Edict produces reliable results on complex tasks: there's a mandator
 
 ## 🚀 Quick Start
 
-### Docker
-
-```bash
-docker run -p 7891:7891 cft0808/edict
-```
-Open http://localhost:7891
-
-### Full Install
-
-**Prerequisites:** [OpenClaw](https://openclaw.ai) · Python 3.9+ · macOS/Linux
+**Prerequisites:**
+- [OpenClaw](https://openclaw.ai) Gateway running and network-accessible
+- Gateway HTTP API enabled (`gateway.http.endpoints.responses.enabled = true`)
+- Docker + Docker Compose
 
 ```bash
 git clone https://github.com/cft0808/edict.git
 cd edict
-chmod +x install.sh && ./install.sh
+cp .env.example .env
+# Edit .env — set OPENCLAW_HOME, OPENCLAW_GATEWAY_URL, etc.
+docker compose up -d
 ```
 
-The installer automatically:
-- Creates workspaces for all departments (`~/.openclaw/workspace-*`, including Crown Prince/HR/Briefing)
-- Writes SOUL.md personality files for each department
-- Registers agents + permission matrix in `openclaw.json`
-- Initializes data directory + first sync
-- Restarts Gateway
+Open http://localhost:7891
 
-### Launch
+#### Configuration
 
-```bash
-# Terminal 1: Data sync loop (every 15s)
-bash scripts/run_loop.sh
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PUID` / `PGID` | Container user UID/GID, must match OpenClaw directory owner | `1000` |
+| `OPENCLAW_HOME` | OpenClaw home directory on host | `~/.openclaw` |
+| `OPENCLAW_GATEWAY_URL` | Gateway address (use `host.docker.internal` from container) | `http://host.docker.internal:18789` |
+| `OPENCLAW_GATEWAY_TOKEN` | Gateway auth token, leave empty if no auth | empty |
+| `DASHBOARD_PORT` | Dashboard port | `7891` |
+| `SYNC_INTERVAL` | Data refresh interval (seconds) | `15` |
 
-# Terminal 2: Dashboard server
-python3 dashboard/server.py
-
-# Open browser
-open http://127.0.0.1:7891
-```
-
-> 📖 See [Getting Started Guide](docs/getting-started.md) for detailed walkthrough.
+> NAS users: set `PUID`/`PGID` to match the UID/GID of the OpenClaw directory owner (check via `id` command or NAS admin panel).
 
 ---
 
@@ -227,12 +194,12 @@ open http://127.0.0.1:7891
 
 ```
                            ┌───────────────────────────────────┐
-                           │         👑 Emperor (You)           │
+                           │         👑 Master (You)            │
                            │     Feishu · Telegram · Signal     │
                            └─────────────────┬─────────────────┘
                                              │ Issue edict
                            ┌─────────────────▼─────────────────┐
-                           │     👑 Crown Prince (太子)          │
+                           │     👑 Queen (皇后)                │
                            │   Triage: chat → reply / cmd → task │
                            └─────────────────┬─────────────────┘
                                              │ Forward edict
@@ -265,7 +232,7 @@ open http://127.0.0.1:7891
 
 | Dept | Agent ID | Role | Expertise |
 |------|----------|------|-----------|
-| 👑 **Crown Prince** | `taizi` | Triage, summarize | Chat detection, intent extraction |
+| 👑 **Queen** | `huanghou` | Triage, summarize | Chat detection, intent extraction |
 | 📜 **Planning** | `zhongshu` | Receive, plan, decompose | Requirements, architecture |
 | 🔍 **Review** | `menxia` | Audit, gatekeep, veto | Quality, risk, standards |
 | 📮 **Dispatch** | `shangshu` | Assign, coordinate, collect | Scheduling, tracking |
@@ -276,12 +243,13 @@ open http://127.0.0.1:7891
 | 🔧 **Infrastructure** | `gongbu` | CI/CD, deploy, tooling | Docker, pipelines |
 | 📋 **HR** | `libu_hr` | Agent management, training | Registration, permissions |
 | 🌅 **Briefing** | `zaochao` | Daily briefing, news | Scheduled reports, summaries |
+| 🔮 **Nüwa** | `nvwa` | Soul guardian, agent tuning | SOUL.md management, prompt optimization, new agent creation |
 
 ### Permission Matrix
 
-| From ↓ \ To → | Prince | Planning | Review | Dispatch | Ministries |
+| From ↓ \ To → | Queen | Planning | Review | Dispatch | Ministries |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| **Crown Prince** | — | ✅ | | | |
+| **Queen** | — | ✅ | | | |
 | **Planning** | ✅ | — | ✅ | ✅ | |
 | **Review** | | ✅ | — | ✅ | |
 | **Dispatch** | | ✅ | ✅ | — | ✅ all |
@@ -290,7 +258,7 @@ open http://127.0.0.1:7891
 ### State Machine
 
 ```
-Emperor → Prince Triage → Planning → Review → Assigned → Executing → ✅ Done
+Master → Queen Triage → Planning → Review → Assigned → Executing → ✅ Done
                               ↑          │                       │
                               └── Veto ──┘              Blocked ──
 ```
@@ -302,14 +270,15 @@ Emperor → Prince Triage → Planning → Review → Assigned → Executing →
 ```
 edict/
 ├── agents/                     # 12 agent personality templates (SOUL.md)
-│   ├── taizi/                  #   Crown Prince (triage)
+│   ├── huanghou/               #   Queen (triage)
 │   ├── zhongshu/               #   Planning Dept
 │   ├── menxia/                 #   Review Dept
 │   ├── shangshu/               #   Dispatch Dept
 │   ├── hubu/ libu/ bingbu/     #   Finance / Docs / Engineering
 │   ├── xingbu/ gongbu/         #   Compliance / Infrastructure
 │   ├── libu_hr/                #   HR Dept
-│   └── zaochao/                #   Morning Briefing
+│   ├── zaochao/                #   Morning Briefing
+│   └── nvwa/                   #   Nüwa · Soul Guardian (meta-agent)
 ├── edict/frontend/             # React 18 frontend (Vite + TypeScript + Zustand)
 │   ├── src/components/         # 13 UI components
 │   ├── src/api.ts              # API layer
@@ -326,7 +295,10 @@ edict/
 │   └── test_e2e_kanban.py      #   Kanban sanitization tests (17 assertions)
 ├── data/                       # Runtime data (gitignored)
 ├── docs/                       # Documentation + screenshots
-├── install.sh                  # One-click installer
+├── Dockerfile                  # Docker image (dashboard + sync)
+├── docker-compose.yml          # Docker Compose orchestration
+├── .env.example                # Docker deployment config template
+├── install.sh                  # Non-Docker installer (optional)
 └── LICENSE                     # MIT
 ```
 
@@ -339,7 +311,7 @@ edict/
 | **React 18 Frontend** | TypeScript + Vite + Zustand, 13 components |
 | **stdlib Backend** | `server.py` on `http.server`, zero dependencies |
 | **Agent Thinking Visible** | Real-time display of agent thinking, tool calls, results |
-| **One-click Install** | Workspace creation to Gateway restart |
+| **Docker Deploy** | `docker compose up -d` launches all services |
 | **15s Auto-sync** | Live data refresh with countdown |
 | **Daily Ceremony** | Immersive opening animation |
 
@@ -351,7 +323,7 @@ edict/
 
 ### Phase 1 — Core Architecture ✅
 - [x] Twelve-department agent architecture + permissions
-- [x] Crown Prince triage layer (chat vs task auto-routing)
+- [x] Queen triage layer (chat vs task auto-routing)
 - [x] Real-time dashboard (10 panels)
 - [x] Task stop / cancel / resume
 - [x] Memorial archive (5-phase timeline)
@@ -372,7 +344,7 @@ edict/
 - [ ] Imperial Archives (knowledge base + citation)
 
 ### Phase 3 — Ecosystem
-- [ ] Docker Compose + demo image
+- [x] Docker Compose full deployment
 - [ ] Notion / Linear adapters
 - [ ] Annual review (yearly performance reports)
 - [ ] Mobile responsive + PWA

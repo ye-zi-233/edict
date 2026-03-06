@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""应用 data/pending_model_changes.json → openclaw.json，并重启 Gateway"""
-import json, pathlib, subprocess, datetime, shutil, logging, glob
+"""应用 data/pending_model_changes.json → openclaw.json，并验证 Gateway 状态"""
+import json, pathlib, datetime, shutil, logging, glob, os
 from file_lock import atomic_json_write, atomic_json_read
 
 log = logging.getLogger('model_change')
@@ -82,19 +82,15 @@ def main():
 
         restart_ok = False
         rollback = False
+        gateway_url = os.environ.get('OPENCLAW_GATEWAY_URL', 'http://127.0.0.1:18789').rstrip('/')
         try:
-            r = subprocess.run(['openclaw', 'gateway', 'restart'], capture_output=True, text=True, timeout=30)
-            restart_ok = r.returncode == 0
-            log.info(f'gateway restart rc={r.returncode}')
+            from urllib.request import urlopen
+            resp = urlopen(f'{gateway_url}/', timeout=5)
+            restart_ok = resp.status == 200
+            log.info(f'gateway health check ok (模型配置已写入，Gateway 将在下次 Agent 调用时生效)')
         except Exception as e:
-            log.error(f'gateway restart failed: {e}')
-            # 回滚配置
-            if bak.exists():
-                shutil.copy2(bak, OPENCLAW_CFG)
-                log.warning('rolled back openclaw.json from backup')
-                rollback = True
-                for a in applied:
-                    a['rolledBack'] = True
+            log.warning(f'gateway health check failed: {e} (配置已写入，请手动重启 Gateway 使其生效)')
+            restart_ok = False
 
         atomic_json_write(PENDING, [])
         atomic_json_write(DATA / 'last_model_change_result.json', {

@@ -42,8 +42,8 @@ def state_from_session(age_ms, aborted):
 
 def detect_official(agent_id):
     mapping = {
-        'main':    ('储君', '太子'),        # legacy id for taizi
-        'taizi':   ('储君', '太子'),
+        'main':    ('皇后', '皇后'),        # legacy id for huanghou
+        'huanghou':   ('皇后', '皇后'),
         'zhongshu': ('中书令', '中书省'),
         'menxia':  ('侍中', '门下省'),
         'shangshu': ('尚书令', '尚书省'),
@@ -304,7 +304,7 @@ def main():
         
         tasks = filtered_tasks
         
-        # ── 保留已有的 JJC-* 旨意任务（不覆盖皇上下旨记录）──
+        # ── 保留已有的 JJC-* 旨意任务（不覆盖主人下旨记录）──
         # JJC 任务的 now 字段由 Agent 自己通过 kanban_update.py progress 命令主动上报，
         # 不再从会话日志中被动抓取。这里只做合并，不做 activity 映射。
         existing_tasks_file = DATA / 'tasks_source.json'

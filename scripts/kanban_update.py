@@ -35,12 +35,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s] %(message
 from file_lock import atomic_json_read, atomic_json_update, atomic_json_write  # noqa: E402
 
 STATE_ORG_MAP = {
-    'Taizi': '太子', 'Zhongshu': '中书省', 'Menxia': '门下省', 'Assigned': '尚书省',
+    'Huanghou': '皇后', 'Zhongshu': '中书省', 'Menxia': '门下省', 'Assigned': '尚书省',
     'Doing': '执行中', 'Review': '尚书省', 'Done': '完成', 'Blocked': '阻塞',
 }
 
 _STATE_AGENT_MAP = {
-    'Taizi': 'main',
+    'Huanghou': 'main',
     'Zhongshu': 'zhongshu',
     'Menxia': 'menxia',
     'Assigned': 'shangshu',
@@ -55,7 +55,7 @@ _ORG_AGENT_MAP = {
 }
 
 _AGENT_LABELS = {
-    'main': '太子', 'taizi': '太子',
+    'main': '皇后', 'huanghou': '皇后',
     'zhongshu': '中书省', 'menxia': '门下省', 'shangshu': '尚书省',
     'libu': '礼部', 'hubu': '户部', 'bingbu': '兵部', 'xingbu': '刑部',
     'gongbu': '工部', 'libu_hr': '吏部', 'zaochao': '钦天监',
@@ -196,7 +196,7 @@ def cmd_create(task_id, title, state, org, official, remark=None):
             "org": actual_org, "state": state,
             "now": clean_remark[:60] if remark else f"已下旨，等待{actual_org}接旨",
             "eta": "-", "block": "无", "output": "", "ac": "",
-            "flow_log": [{"at": now_iso(), "from": "皇上", "to": actual_org, "remark": clean_remark}],
+            "flow_log": [{"at": now_iso(), "from": "主人", "to": actual_org, "remark": clean_remark}],
             "updatedAt": now_iso()
         })
         return tasks
@@ -256,7 +256,7 @@ def cmd_done(task_id, output_path='', summary=''):
         t['now'] = summary or '任务已完成'
         t.setdefault('flow_log', []).append({
             "at": now_iso(), "from": t.get('org', '执行部门'),
-            "to": "皇上", "remark": f"✅ 完成：{summary or '任务已完成'}"
+            "to": "主人", "remark": f"✅ 完成：{summary or '任务已完成'}"
         })
         t['updatedAt'] = now_iso()
         return tasks

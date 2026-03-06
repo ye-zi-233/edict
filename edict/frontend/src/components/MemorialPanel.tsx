@@ -62,7 +62,7 @@ export default function MemorialPanel() {
         ) : (
           mems.map((t) => {
             const fl = t.flow_log || [];
-            const depts = [...new Set(fl.map((f) => f.from).concat(fl.map((f) => f.to)).filter((x) => x && x !== '皇上'))];
+            const depts = [...new Set(fl.map((f) => f.from).concat(fl.map((f) => f.to)).filter((x) => x && x !== '主人'))];
             const firstAt = fl.length ? (fl[0].at || '').substring(0, 16).replace('T', ' ') : '';
             const lastAt = fl.length ? (fl[fl.length - 1].at || '').substring(0, 16).replace('T', ' ') : '';
             const stIcon = t.state === 'Done' ? '✅' : '🚫';
@@ -112,7 +112,7 @@ function MemorialDetailModal({
   const fl = t.flow_log || [];
   const st = t.state || 'Unknown';
   const stIcon = st === 'Done' ? '✅' : st === 'Cancelled' ? '🚫' : '🔄';
-  const depts = [...new Set(fl.map((f) => f.from).concat(fl.map((f) => f.to)).filter((x) => x && x !== '皇上'))];
+  const depts = [...new Set(fl.map((f) => f.from).concat(fl.map((f) => f.to)).filter((x) => x && x !== '主人'))];
 
   // Reconstruct phases
   const originLog: FlowEntry[] = [];
@@ -121,7 +121,7 @@ function MemorialDetailModal({
   const execLog: FlowEntry[] = [];
   const resultLog: FlowEntry[] = [];
   for (const f of fl) {
-    if (f.from === '皇上') originLog.push(f);
+    if (f.from === '主人') originLog.push(f);
     else if (f.to === '中书省' || f.from === '中书省') planLog.push(f);
     else if (f.to === '门下省' || f.from === '门下省') reviewLog.push(f);
     else if (f.remark && (f.remark.includes('完成') || f.remark.includes('回奏'))) resultLog.push(f);

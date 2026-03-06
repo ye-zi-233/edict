@@ -15,8 +15,8 @@ DATA = BASE / 'data'
 OPENCLAW_CFG = pathlib.Path.home() / '.openclaw' / 'openclaw.json'
 
 ID_LABEL = {
-    'taizi':    {'label': '太子',   'role': '太子',     'duty': '飞书消息分拣与回奏',  'emoji': '🤴'},
-    'main':     {'label': '太子',   'role': '太子',     'duty': '飞书消息分拣与回奏',  'emoji': '🤴'},  # 兼容旧配置
+    'huanghou': {'label': '皇后',   'role': '皇后',     'duty': '飞书消息分拣与回奏',  'emoji': '👑'},
+    'main':     {'label': '皇后',   'role': '皇后',     'duty': '飞书消息分拣与回奏',  'emoji': '👑'},  # 兼容旧配置
     'zhongshu': {'label': '中书省', 'role': '中书令',   'duty': '起草任务令与优先级',  'emoji': '📜'},
     'menxia':   {'label': '门下省', 'role': '侍中',     'duty': '审议与退回机制',      'emoji': '🔍'},
     'shangshu': {'label': '尚书省', 'role': '尚书令',   'duty': '派单与升级裁决',      'emoji': '📮'},
@@ -27,6 +27,7 @@ ID_LABEL = {
     'gongbu':   {'label': '工部',   'role': '工部尚书', 'duty': '工程交付与自动化',    'emoji': '🔧'},
     'libu_hr':  {'label': '吏部',   'role': '吏部尚书', 'duty': '人事/培训/Agent管理',  'emoji': '👔'},
     'zaochao':  {'label': '钦天监', 'role': '朝报官',   'duty': '每日新闻采集与简报',  'emoji': '📰'},
+    'nvwa':     {'label': '女娲',   'role': '创世者',   'duty': '灵魂调优与新建提案',  'emoji': '🌸'},
 }
 
 KNOWN_MODELS = [
@@ -112,7 +113,7 @@ def main():
 
     # 补充不在 openclaw.json agents list 中的 agent（兼容旧版 main）
     EXTRA_AGENTS = {
-        'taizi':   {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-taizi'),
+        'huanghou': {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-huanghou'),
                     'allowAgents': ['zhongshu']},
         'main':    {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-main'),
                     'allowAgents': ['zhongshu','menxia','shangshu','hubu','libu','bingbu','xingbu','gongbu','libu_hr']},
@@ -120,6 +121,8 @@ def main():
                     'allowAgents': []},
         'libu_hr': {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-libu_hr'),
                     'allowAgents': ['shangshu']},
+        'nvwa':    {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-nvwa'),
+                    'allowAgents': []},
     }
     for ag_id, extra in EXTRA_AGENTS.items():
         if ag_id in seen_ids or ag_id not in ID_LABEL:
@@ -154,7 +157,7 @@ def main():
 
 # 项目 agents/ 目录名 → 运行时 agent_id 映射
 _SOUL_DEPLOY_MAP = {
-    'taizi': 'taizi',
+    'huanghou': 'huanghou',
     'zhongshu': 'zhongshu',
     'menxia': 'menxia',
     'shangshu': 'shangshu',
@@ -165,6 +168,7 @@ _SOUL_DEPLOY_MAP = {
     'gongbu': 'gongbu',
     'libu_hr': 'libu_hr',
     'zaochao': 'zaochao',
+    'nvwa': 'nvwa',
 }
 
 def sync_scripts_to_workspaces():
@@ -229,8 +233,8 @@ def deploy_soul_files():
         if src_text != dst_text:
             ws_dst.write_text(src_text, encoding='utf-8')
             deployed += 1
-        # 太子兼容：同步一份到 legacy main agent 目录
-        if runtime_id == 'taizi':
+        # 皇后兼容：同步一份到 legacy main agent 目录
+        if runtime_id == 'huanghou':
             ag_dst = pathlib.Path.home() / '.openclaw/agents/main/SOUL.md'
             ag_dst.parent.mkdir(parents=True, exist_ok=True)
             try:
