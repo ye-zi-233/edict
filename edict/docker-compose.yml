@@ -1,8 +1,14 @@
-version: "3.9"
-
 # ══════════════════════════════════════════════════════
 # Edict 三省六部 — 事件驱动架构 Docker Compose
 # ══════════════════════════════════════════════════════
+#
+# 前提条件：
+#   1. OpenClaw Gateway 已运行且可通过网络访问
+#   2. 复制 .env.example 为 .env 并配置各项参数
+#
+# 启动: docker compose up -d
+# 访问: http://localhost:${FRONTEND_PORT:-3000}
+# 停止: docker compose down
 
 services:
   # ── 基础设施 ──
@@ -10,15 +16,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: edict
-      POSTGRES_USER: edict
-      POSTGRES_PASSWORD: edict_dev_2024
+      POSTGRES_DB: ${POSTGRES_DB:-edict}
+      POSTGRES_USER: ${POSTGRES_USER:-edict}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-edict_secret_change_me}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U edict"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-edict}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -27,7 +33,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
@@ -42,27 +48,49 @@ services:
 
   backend:
     build:
-      context: .
+      context: ..
       dockerfile: edict/Dockerfile
+    user: "${PUID:-1000}:${PGID:-1000}"
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://edict:edict_dev_2024@postgres:5432/edict
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
       REDIS_URL: redis://redis:6379/0
       PORT: 8000
-      DEBUG: "true"
+      DEBUG: "${DEBUG:-false}"
+      HOME: /home/appuser
+      OPENCLAW_HOME: /home/appuser/.openclaw
+      OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-http://host.docker.internal:18789}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      OPENCLAW_BIN: ${OPENCLAW_BIN:-openclaw}
+      SYNC_INTERVAL: ${SYNC_INTERVAL:-15}
+      STALL_THRESHOLD_SEC: ${STALL_THRESHOLD_SEC:-180}
+      MAX_DISPATCH_RETRY: ${MAX_DISPATCH_RETRY:-3}
+      DISPATCH_TIMEOUT_SEC: ${DISPATCH_TIMEOUT_SEC:-300}
+      FEISHU_DELIVER: ${FEISHU_DELIVER:-true}
+      FEISHU_CHANNEL: ${FEISHU_CHANNEL:-feishu}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - ./agents:/app/agents:ro
-      - ./data:/app/data
+      - edict_data:/app/data
+      - ${OPENCLAW_HOME:-~/.openclaw}:/home/appuser/.openclaw
+      - ../agents:/app/agents:ro
+      - ../scripts:/app/scripts:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     command: >
       sh -c "
         python -m alembic upgrade head &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+        uvicorn app.main:app --host 0.0.0.0 --port 8000
       "
     restart: unless-stopped
 
@@ -70,54 +98,115 @@ services:
 
   orchestrator:
     build:
-      context: .
+      context: ..
       dockerfile: edict/Dockerfile
+    user: "${PUID:-1000}:${PGID:-1000}"
     environment:
-      DATABASE_URL: postgresql+asyncpg://edict:edict_dev_2024@postgres:5432/edict
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
       REDIS_URL: redis://redis:6379/0
+      HOME: /home/appuser
+      OPENCLAW_HOME: /home/appuser/.openclaw
+      OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-http://host.docker.internal:18789}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
     depends_on:
-      postgres:
+      backend:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - edict_data:/app/data
+      - ${OPENCLAW_HOME:-~/.openclaw}:/home/appuser/.openclaw
     command: python -m app.workers.orchestrator_worker
     restart: unless-stopped
 
   dispatcher:
     build:
-      context: .
+      context: ..
       dockerfile: edict/Dockerfile
+    user: "${PUID:-1000}:${PGID:-1000}"
     environment:
-      DATABASE_URL: postgresql+asyncpg://edict:edict_dev_2024@postgres:5432/edict
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
       REDIS_URL: redis://redis:6379/0
       OPENCLAW_PROJECT_DIR: /app
+      HOME: /home/appuser
+      OPENCLAW_HOME: /home/appuser/.openclaw
+      OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-http://host.docker.internal:18789}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      OPENCLAW_BIN: ${OPENCLAW_BIN:-openclaw}
     depends_on:
-      postgres:
+      backend:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - ./agents:/app/agents:ro
-      - ./scripts:/app/scripts
-      - ./data:/app/data
+      - edict_data:/app/data
+      - ${OPENCLAW_HOME:-~/.openclaw}:/home/appuser/.openclaw
+      - ../agents:/app/agents:ro
+      - ../scripts:/app/scripts:ro
     command: python -m app.workers.dispatch_worker
+    restart: unless-stopped
+
+  sync:
+    build:
+      context: ..
+      dockerfile: edict/Dockerfile
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
+      REDIS_URL: redis://redis:6379/0
+      HOME: /home/appuser
+      OPENCLAW_HOME: /home/appuser/.openclaw
+      OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-http://host.docker.internal:18789}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      SYNC_INTERVAL: ${SYNC_INTERVAL:-15}
+    depends_on:
+      backend:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - edict_data:/app/data
+      - ${OPENCLAW_HOME:-~/.openclaw}:/home/appuser/.openclaw
+      - ../agents:/app/agents:ro
+      - ../scripts:/app/scripts:ro
+    command: python -m app.workers.sync_worker
+    restart: unless-stopped
+
+  news:
+    build:
+      context: ..
+      dockerfile: edict/Dockerfile
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
+      REDIS_URL: redis://redis:6379/0
+      HOME: /home/appuser
+      FEISHU_DELIVER: ${FEISHU_DELIVER:-true}
+      FEISHU_CHANNEL: ${FEISHU_CHANNEL:-feishu}
+    depends_on:
+      backend:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - edict_data:/app/data
+    command: python -m app.workers.news_worker
     restart: unless-stopped
 
   # ── 前端 ──
 
   frontend:
     build:
-      context: ./edict/frontend
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
-    environment:
-      VITE_API_URL: http://localhost:8000
-      VITE_WS_URL: ws://localhost:8000/ws
+      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   pg_data:
   redis_data:
+  edict_data:
