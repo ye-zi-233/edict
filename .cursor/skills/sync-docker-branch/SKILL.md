@@ -82,7 +82,10 @@ git merge origin/docker
 **2.2 若出现冲突：**
 
 - 列出冲突文件：`git status` 或 `git diff --name-only --diff-filter=U`
-- 逐文件打开，按「保留我方 / 接受对方 / 手动合并」处理；可对照步骤 1 生成的 `docs/branch-<当前分支>-changes.md` 中「核心改动意图」与「合并时需重点关注」
+- **先看 docker 侧提交信息**（`git log HEAD^1..origin/docker --oneline`），理解 docker 分支的意图再做决策
+- docker 分支是**部署架构的权威来源**：若 docker 删除了某文件（如根目录 Dockerfile），应跟随删除，不应保留当前分支版本
+- 对于 Agent SOUL.md、业务逻辑等非部署文件，以当前分支为准
+- 对照步骤 1 的 `docs/branch-<当前分支>-changes.md` 中「核心改动意图」辅助判断
 - 解决后：`git add <文件>`，再 `git commit` 完成合并
 - **不要**在未与用户确认的情况下自动执行 `git push`
 
@@ -101,7 +104,7 @@ git log HEAD^2..HEAD --oneline
 **3.2 简要审查：**
 
 - 是否与当前分支约定冲突（如 SOUL.md、权限矩阵、目录结构）
-- 是否需适配配置/路径/环境：本仓库有根目录与 `edict/` 下多份 Dockerfile、docker-compose、.env，需注意路径与变量是否与当前用法一致
+- 是否需适配配置/路径/环境：部署方案以 `edict/` 为准（Dockerfile、docker-compose、.env 均在 edict/ 下），需注意路径与变量是否与当前用法一致
 - 输出「需人工确认或修改」的清单：**文件路径 + 简短原因**
 
 **3.3 对照「当前分支摘要」：**
