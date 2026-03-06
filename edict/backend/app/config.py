@@ -1,5 +1,8 @@
 """Edict 配置管理 — 从环境变量加载所有配置。"""
 
+import os
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -25,12 +28,17 @@ class Settings(BaseSettings):
 
     # ── OpenClaw ──
     openclaw_gateway_url: str = "http://localhost:18789"
+    openclaw_gateway_token: str = ""
     openclaw_bin: str = "openclaw"
     openclaw_project_dir: str | None = None
+    openclaw_home: str = ""  # 运行时自动从 HOME 环境变量推导
 
     # ── Legacy 兼容 ──
     legacy_data_dir: str = "../data"
     legacy_tasks_file: str = "../data/tasks_source.json"
+
+    # ── 数据同步 ──
+    sync_interval: int = 15  # 从 OpenClaw 运行时同步数据的间隔（秒）
 
     # ── 调度参数 ──
     stall_threshold_sec: int = 180
@@ -42,6 +50,7 @@ class Settings(BaseSettings):
     # ── 飞书 ──
     feishu_deliver: bool = True
     feishu_channel: str = "feishu"
+    feishu_webhook: str = ""
 
     @property
     def database_url(self) -> str:
@@ -51,6 +60,14 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def resolved_openclaw_home(self) -> Path:
+        """解析 OpenClaw 主目录路径，优先使用 OPENCLAW_HOME 环境变量。"""
+        if self.openclaw_home:
+            return Path(self.openclaw_home)
+        home = os.environ.get("HOME", os.path.expanduser("~"))
+        return Path(home) / ".openclaw"
 
     @property
     def database_url_sync(self) -> str:
