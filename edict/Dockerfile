@@ -29,6 +29,8 @@ COPY agents/ /app/agents/
 COPY scripts/ /app/scripts/
 
 # 创建数据目录和用户 home（运行时通过 volume 挂载覆盖）
+# chmod 777 确保任意 PUID:PGID 都可写，无需在镜像内固定 uid
+# /etc/passwd 中不固定 uid，HOME 环境变量由 compose 显式传入，避免 getpwuid 查询
 RUN mkdir -p /app/data /home/appuser/.openclaw \
     && chmod 777 /home/appuser /app /app/data
 
