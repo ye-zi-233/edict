@@ -31,3 +31,7 @@ edict/frontend/node_modules/
 # Backups
 *.bak*
 data
+
+# 环境变量（含密码/路径，禁止提交）
+.env
+edict/.env

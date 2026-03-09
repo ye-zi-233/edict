@@ -10,11 +10,11 @@
 # 访问: http://localhost:${FRONTEND_PORT:-3000}
 # 停止: docker compose down
 #
-# 发布带 tag 的镜像（如 cat 分支）：EDICT_IMAGE_TAG=cat-kingdom docker compose build
+# 构建镜像：docker compose build（使用 .env 中的 EDICT_IMAGE_TAG，默认 cat-kingdom）
 # 构建出的镜像为 edict-backend:cat-kingdom、edict-frontend:cat-kingdom
 #
-# 路径配置：EDICT_ROOT 和 OPENCLAW_HOME 必须在 .env 中设为宿主机绝对路径
-# EDICT_ROOT 同时控制 agents/、scripts/（代码）和 data/（数据）的挂载
+# 路径配置：EDICT_ROOT（数据根目录）和 OPENCLAW_HOME 必须在 .env 中设为宿主机绝对路径
+# agents/、scripts/ 已 COPY 进镜像，不做运行时挂载；如需热更新可手动添加 volume
 
 services:
   # ── 初始化：创建数据子目录并设置权限 ──
@@ -24,7 +24,7 @@ services:
   init-data-dirs:
     image: busybox
     volumes:
-      - ${EDICT_ROOT:-..}/data:/data
+      - ${EDICT_ROOT}:/data
     environment:
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
@@ -50,7 +50,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - ${EDICT_ROOT:-..}/data/postgres:/var/lib/postgresql/data
+      - ${EDICT_ROOT}/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-edict}"]
       interval: 5s
@@ -66,7 +66,7 @@ services:
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
-      - ${EDICT_ROOT:-..}/data/redis:/data
+      - ${EDICT_ROOT}/redis:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -109,10 +109,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${EDICT_ROOT:-..}/data/edict:/app/data
-      - ${OPENCLAW_HOME:-~/.openclaw}:/home/appuser/.openclaw
-      - ${EDICT_ROOT:-..}/agents:/app/agents:ro
-      - ${EDICT_ROOT:-..}/scripts:/app/scripts:ro
+      - ${EDICT_ROOT}/edict:/app/data
+      - ${OPENCLAW_HOME}:/home/appuser/.openclaw
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
       interval: 15s
@@ -147,8 +145,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${EDICT_ROOT:-..}/data/edict:/app/data
-      - ${OPENCLAW_HOME:-~/.openclaw}:/home/appuser/.openclaw
+      - ${EDICT_ROOT}/edict:/app/data
+      - ${OPENCLAW_HOME}:/home/appuser/.openclaw
     command: python -m app.workers.orchestrator_worker
     restart: unless-stopped
 
@@ -173,10 +171,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${EDICT_ROOT:-..}/data/edict:/app/data
-      - ${OPENCLAW_HOME:-~/.openclaw}:/home/appuser/.openclaw
-      - ${EDICT_ROOT:-..}/agents:/app/agents:ro
-      - ${EDICT_ROOT:-..}/scripts:/app/scripts:ro
+      - ${EDICT_ROOT}/edict:/app/data
+      - ${OPENCLAW_HOME}:/home/appuser/.openclaw
     command: python -m app.workers.dispatch_worker
     restart: unless-stopped
 
@@ -200,10 +196,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${EDICT_ROOT:-..}/data/edict:/app/data
-      - ${OPENCLAW_HOME:-~/.openclaw}:/home/appuser/.openclaw
-      - ${EDICT_ROOT:-..}/agents:/app/agents:ro
-      - ${EDICT_ROOT:-..}/scripts:/app/scripts:ro
+      - ${EDICT_ROOT}/edict:/app/data
+      - ${OPENCLAW_HOME}:/home/appuser/.openclaw
     command: python -m app.workers.sync_worker
     restart: unless-stopped
 
@@ -225,7 +219,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${EDICT_ROOT:-..}/data/edict:/app/data
+      - ${EDICT_ROOT}/edict:/app/data
     command: python -m app.workers.news_worker
     restart: unless-stopped
 

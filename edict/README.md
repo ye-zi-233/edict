@@ -39,7 +39,7 @@ docker compose up -d
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `EDICT_ROOT` | 项目根目录绝对路径，控制 agents/scripts（代码）和 data/（数据）的挂载位置 | 必填 |
+| `EDICT_ROOT` | 数据根目录绝对路径，其下自动创建 postgres/redis/edict 三个子目录 | 必填 |
 | `OPENCLAW_HOME` | 宿主机 OpenClaw 主目录绝对路径 | 必填 |
 | `PUID` / `PGID` | 容器运行用户 UID/GID，与宿主机目录所有者一致 | `1000` |
 | `OPENCLAW_GATEWAY_URL` | Gateway 地址（容器内用 `host.docker.internal`） | `http://host.docker.internal:18789` |
@@ -140,4 +140,4 @@ ws.onmessage = (e) => console.log(JSON.parse(e.data));
 3. **数据目录权限**：`data/postgres` 由 postgres 镜像自动 chown；`data/redis` 设为 777（redis 内部 uid 999）；`data/edict` chown 给 `PUID:PGID`
 4. **OpenClaw 目录**：通过 volume 挂载到容器，sync worker 需要读取会话文件
 5. **Gateway 通信**：容器内通过 `host.docker.internal` 访问宿主机 Gateway
-6. **生产部署**：务必修改 `POSTGRES_PASSWORD`，关闭 `DEBUG`
+6. **生产部署**：`POSTGRES_PASSWORD` 默认值是明文占位，**必须修改**；同时关闭 `DEBUG`
