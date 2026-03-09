@@ -29,18 +29,19 @@ Edict 是三省六部的事件驱动后端架构，基于 PostgreSQL + Redis + F
 ```bash
 cd edict
 cp .env.example .env
-# 编辑 .env 配置（至少设置 OPENCLAW_HOME 和 POSTGRES_PASSWORD）
+# 编辑 .env，设置 EDICT_ROOT、OPENCLAW_HOME 为宿主机绝对路径，以及 POSTGRES_PASSWORD
 docker compose up -d
 ```
 
-打开 http://localhost:3000 即可使用。
+打开 http://localhost:3000 即可使用。数据子目录（postgres/redis/edict）由 `init-data-dirs` 服务在首次启动时自动创建。
 
 ### 配置说明
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `PUID` / `PGID` | 容器运行用户 UID/GID（需与 OpenClaw 目录所有者一致） | `1000` |
-| `OPENCLAW_HOME` | 宿主机 OpenClaw 主目录路径 | `~/.openclaw` |
+| `EDICT_ROOT` | 项目根目录绝对路径，控制 agents/scripts（代码）和 data/（数据）的挂载位置 | 必填 |
+| `OPENCLAW_HOME` | 宿主机 OpenClaw 主目录绝对路径 | 必填 |
+| `PUID` / `PGID` | 容器运行用户 UID/GID，与宿主机目录所有者一致 | `1000` |
 | `OPENCLAW_GATEWAY_URL` | Gateway 地址（容器内用 `host.docker.internal`） | `http://host.docker.internal:18789` |
 | `OPENCLAW_GATEWAY_TOKEN` | Gateway 认证 Token（无认证留空） | 空 |
 | `POSTGRES_PASSWORD` | PostgreSQL 密码 | `edict_secret_change_me` |
@@ -134,9 +135,9 @@ ws.onmessage = (e) => console.log(JSON.parse(e.data));
 
 ## 注意事项
 
-1. **首次启动**：`docker compose up -d` 会自动运行 Alembic 迁移创建数据库表
-2. **NAS 部署**：设置 `PUID`/`PGID` 为 OpenClaw 目录的所有者 UID/GID
-3. **数据持久化**：PostgreSQL、Redis 和应用数据分别使用 `pg_data`、`redis_data`、`edict_data` 三个 Docker 卷
+1. **必须设置绝对路径**：`EDICT_ROOT` 和 `OPENCLAW_HOME` 均需填写宿主机绝对路径，`~` 或相对路径可能解析异常
+2. **首次启动**：`docker compose up -d` 会先由 `init-data-dirs` 创建数据子目录并设置权限，再运行 Alembic 迁移建表
+3. **数据目录权限**：`data/postgres` 由 postgres 镜像自动 chown；`data/redis` 设为 777（redis 内部 uid 999）；`data/edict` chown 给 `PUID:PGID`
 4. **OpenClaw 目录**：通过 volume 挂载到容器，sync worker 需要读取会话文件
 5. **Gateway 通信**：容器内通过 `host.docker.internal` 访问宿主机 Gateway
 6. **生产部署**：务必修改 `POSTGRES_PASSWORD`，关闭 `DEBUG`
