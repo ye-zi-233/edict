@@ -10,8 +10,8 @@
 # 访问: http://localhost:${FRONTEND_PORT:-3000}
 # 停止: docker compose down
 #
-# 构建镜像：docker compose build（使用 .env 中的 EDICT_IMAGE_TAG，默认 cat-kingdom）
-# 构建出的镜像为 edict-backend:cat-kingdom、edict-frontend:cat-kingdom
+# 镜像由 GitHub Actions 自动构建并推送到 ghcr.io，用户直接 docker compose up -d 即可
+# 本地开发可用 docker compose build 从源码构建覆盖镜像
 #
 # 路径配置：EDICT_ROOT（数据根目录）和 OPENCLAW_HOME 必须在 .env 中设为宿主机绝对路径
 # agents/、scripts/ 已 COPY 进镜像，不做运行时挂载；如需热更新可手动添加 volume
@@ -78,7 +78,7 @@ services:
   # ── 后端服务 ──
 
   backend:
-    image: edict-backend:${EDICT_IMAGE_TAG:-latest}
+    image: ghcr.io/ye-zi-233/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ..
       dockerfile: edict/Dockerfile
@@ -127,7 +127,7 @@ services:
   # ── Worker 进程 ──
 
   orchestrator:
-    image: edict-backend:${EDICT_IMAGE_TAG:-latest}
+    image: ghcr.io/ye-zi-233/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ..
       dockerfile: edict/Dockerfile
@@ -151,7 +151,7 @@ services:
     restart: unless-stopped
 
   dispatcher:
-    image: edict-backend:${EDICT_IMAGE_TAG:-latest}
+    image: ghcr.io/ye-zi-233/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ..
       dockerfile: edict/Dockerfile
@@ -177,7 +177,7 @@ services:
     restart: unless-stopped
 
   sync:
-    image: edict-backend:${EDICT_IMAGE_TAG:-latest}
+    image: ghcr.io/ye-zi-233/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ..
       dockerfile: edict/Dockerfile
@@ -202,7 +202,7 @@ services:
     restart: unless-stopped
 
   news:
-    image: edict-backend:${EDICT_IMAGE_TAG:-latest}
+    image: ghcr.io/ye-zi-233/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ..
       dockerfile: edict/Dockerfile
@@ -226,7 +226,7 @@ services:
   # ── 前端 ──
 
   frontend:
-    image: edict-frontend:${EDICT_IMAGE_TAG:-latest}
+    image: ghcr.io/ye-zi-233/edict-frontend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ./frontend
       dockerfile: Dockerfile
