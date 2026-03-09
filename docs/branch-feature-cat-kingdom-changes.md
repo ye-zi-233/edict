@@ -22,7 +22,7 @@
 |------|------|
 | `.env.example` | 根目录 Docker 部署环境变量模板 |
 | `Dockerfile` | 根目录 Docker 镜像构建文件 |
-| `docker-compose.yml` | 根目录 Docker Compose 全功能部署编排 |
+| `docker-compose.yaml` | 根目录 Docker Compose 全功能部署编排 |
 | `agents/huanghou/SOUL.md` | 新角色「皇后」— 消息分拣（闲聊直接回/旨意建任务） |
 | `agents/nvwa/SOUL.md` | 新角色「女娲」— 灵魂守护 meta-agent（只读分析、起草提案） |
 | `scripts/nvwa_tools.py` | 女娲工具脚本（list-agents/read-soul/read-logs/propose） |
@@ -81,7 +81,7 @@
 **edict 前后端：**
 - `edict/.env.example` — 环境变量模板调整
 - `edict/Dockerfile` — 镜像构建调整
-- `edict/docker-compose.yml` — 编排大幅重构（+157/-）
+- `edict/docker-compose.yaml` — 编排大幅重构（+157/-）
 - `edict/backend/app/api/__init__.py` — API 模块注册精简
 - `edict/backend/app/api/agents.py` — Agent 接口修改
 - `edict/backend/app/config.py` — 配置模块
@@ -120,7 +120,7 @@
 1. **角色架构调整**：移除太子(taizi)，新增皇后(huanghou) + 女娲(nvwa)，重写全部 11 个 Agent 的 SOUL.md
 2. **demo 数据清理**：删除 `docker/demo_data/` 硬编码演示数据，改为 `.env.example` 配置化方式
 3. **edict 后端精简**：移除大量冗余 API 模块（compat/models/morning/officials/scheduler/skills/task_ops）和对应 service/worker
-4. **Docker 部署重构**：根目录新增独立 Dockerfile + docker-compose.yml + .env.example，支持一键部署
+4. **Docker 部署重构**：根目录新增独立 Dockerfile + docker-compose.yaml + .env.example，支持一键部署
 5. **女娲 meta-agent**：新增提案审批工作流（nvwa_tools.py + apply_nvwa_proposal.py）
 6. **文档全面更新**：README/ROADMAP/架构文档同步反映新架构
 
@@ -130,6 +130,6 @@
 
 - 被删除的 `docker/demo_data/` 和 edict 后端模块：若 docker 分支有对这些文件的修改，合并时会产生冲突，应选择**删除（ours）**
 - Agent SOUL.md 全部重写：若 docker 分支也改过 SOUL.md，冲突时应以**当前分支为准**
-- 根目录 `Dockerfile` / `docker-compose.yml` / `.env.example` 是本分支新增的，docker 分支可能也有，需逐文件对比
-- `edict/docker-compose.yml` 大幅重构，合并时注意服务定义是否兼容
+- 根目录 `Dockerfile` / `docker-compose.yaml` / `.env.example` 是本分支新增的，docker 分支可能也有，需逐文件对比
+- `edict/docker-compose.yaml` 大幅重构，合并时注意服务定义是否兼容
 - `dashboard/server.py` 改动大，若 docker 分支也有改动需手动对比逻辑
