@@ -78,7 +78,7 @@ services:
   # ── 后端服务 ──
 
   backend:
-    image: ghcr.io/ye-zi-233/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
+    image: ${DOCKERHUB_USERNAME:-ye-zi-233}/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ..
       dockerfile: edict/Dockerfile
@@ -127,7 +127,7 @@ services:
   # ── Worker 进程 ──
 
   orchestrator:
-    image: ghcr.io/ye-zi-233/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
+    image: ${DOCKERHUB_USERNAME:-ye-zi-233}/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ..
       dockerfile: edict/Dockerfile
@@ -151,7 +151,7 @@ services:
     restart: unless-stopped
 
   dispatcher:
-    image: ghcr.io/ye-zi-233/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
+    image: ${DOCKERHUB_USERNAME:-ye-zi-233}/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ..
       dockerfile: edict/Dockerfile
@@ -177,7 +177,7 @@ services:
     restart: unless-stopped
 
   sync:
-    image: ghcr.io/ye-zi-233/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
+    image: ${DOCKERHUB_USERNAME:-ye-zi-233}/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ..
       dockerfile: edict/Dockerfile
@@ -202,7 +202,7 @@ services:
     restart: unless-stopped
 
   news:
-    image: ghcr.io/ye-zi-233/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
+    image: ${DOCKERHUB_USERNAME:-ye-zi-233}/edict-backend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ..
       dockerfile: edict/Dockerfile
@@ -226,7 +226,7 @@ services:
   # ── 前端 ──
 
   frontend:
-    image: ghcr.io/ye-zi-233/edict-frontend:${EDICT_IMAGE_TAG:-cat-kingdom}
+    image: ${DOCKERHUB_USERNAME:-ye-zi-233}/edict-frontend:${EDICT_IMAGE_TAG:-cat-kingdom}
     build:
       context: ./frontend
       dockerfile: Dockerfile
