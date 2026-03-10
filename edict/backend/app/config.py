@@ -21,8 +21,7 @@ class Settings(BaseSettings):
 
     # ── Server ──
     backend_host: str = "0.0.0.0"
-    backend_port: int = 8000
-    port: int = 8000
+    port: int = 8000  # uvicorn 启动端口，对应 PORT 环境变量
     secret_key: str = "change-me-in-production"
     debug: bool = False
 
@@ -76,11 +75,10 @@ class Settings(BaseSettings):
 
     @property
     def database_url_sync(self) -> str:
-        """同步 URL，供 Alembic 使用。"""
-        return (
-            f"postgresql://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-        )
+        """同步 URL，供 Alembic 使用。与 database_url 保持同源，asyncpg 驱动替换为标准驱动。"""
+        async_url = self.database_url
+        # 将 asyncpg 驱动替换为同步驱动，其余部分与 database_url 完全一致
+        return async_url.replace("postgresql+asyncpg://", "postgresql://", 1)
 
     model_config = {
         "env_file": ".env",

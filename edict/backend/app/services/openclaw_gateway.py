@@ -86,7 +86,7 @@ def _get_agent_session_status(agent_id: str) -> tuple[int, int, bool]:
             ts = v.get("updatedAt", 0)
             if isinstance(ts, (int, float)) and ts > last_ts:
                 last_ts = ts
-        now_ms = int(datetime.now().timestamp() * 1000)
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         age_ms = now_ms - last_ts if last_ts else 9999999999
         is_busy = age_ms <= 2 * 60 * 1000
         return last_ts, session_count, is_busy
@@ -135,7 +135,7 @@ async def get_agents_status() -> dict:
         elif process_alive or is_busy:
             status, status_label = "running", "🟢 运行中"
         elif last_ts > 0:
-            now_ms = int(datetime.now().timestamp() * 1000)
+            now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
             age_ms = now_ms - last_ts
             if age_ms <= 10 * 60 * 1000:
                 status, status_label = "idle", "🟡 待命"
@@ -149,7 +149,7 @@ async def get_agents_status() -> dict:
         last_active_str = None
         if last_ts > 0:
             try:
-                last_active_str = datetime.fromtimestamp(last_ts / 1000).strftime("%m-%d %H:%M")
+                last_active_str = datetime.fromtimestamp(last_ts / 1000, tz=timezone.utc).strftime("%m-%d %H:%M")
             except Exception:
                 pass
 

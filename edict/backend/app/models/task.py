@@ -45,6 +45,7 @@ TERMINAL_STATES = {TaskState.Done, TaskState.Cancelled}
 
 # 状态流转合法路径
 STATE_TRANSITIONS = {
+    TaskState.Pending: {TaskState.Taizi, TaskState.Zhongshu, TaskState.Cancelled},  # 待处理 → 分拣后进入起草或审议
     TaskState.Taizi: {TaskState.Zhongshu, TaskState.Cancelled},
     TaskState.Zhongshu: {TaskState.Menxia, TaskState.Cancelled, TaskState.Blocked},
     TaskState.Menxia: {TaskState.Assigned, TaskState.Zhongshu, TaskState.Cancelled},  # 封驳退回中书

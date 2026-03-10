@@ -15,8 +15,8 @@ import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.request import urlopen, Request
 
+import httpx
 from fastapi import APIRouter
 
 from ..config import get_settings
@@ -149,13 +149,13 @@ async def add_remote_skill(body: dict):
     if not source_url.startswith("https://"):
         return {"ok": False, "error": "仅支持 HTTPS URL"}
 
-    # 下载内容
+    # 下载内容（异步，避免阻塞 Event Loop）
     try:
-        req = Request(source_url, headers={"User-Agent": "Edict-SkillManager/2.0"})
-        resp = urlopen(req, timeout=30)
-        if resp.status != 200:
-            return {"ok": False, "error": f"下载失败: HTTP {resp.status}"}
-        content = resp.read().decode("utf-8")
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(source_url, headers={"User-Agent": "Edict-SkillManager/2.0"})
+        if resp.status_code != 200:
+            return {"ok": False, "error": f"下载失败: HTTP {resp.status_code}"}
+        content = resp.text
         if len(content) > 500_000:
             return {"ok": False, "error": "文件过大（>500KB）"}
     except Exception as e:
@@ -198,10 +198,15 @@ async def update_remote_skill(body: dict):
     if not url:
         return {"ok": False, "error": "无源 URL"}
 
+    # 下载内容（异步，避免阻塞 Event Loop；同步补全状态码和大小校验）
     try:
-        req = Request(url, headers={"User-Agent": "Edict-SkillManager/2.0"})
-        resp = urlopen(req, timeout=30)
-        content = resp.read().decode("utf-8")
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url, headers={"User-Agent": "Edict-SkillManager/2.0"})
+        if resp.status_code != 200:
+            return {"ok": False, "error": f"更新下载失败: HTTP {resp.status_code}"}
+        content = resp.text
+        if len(content) > 500_000:
+            return {"ok": False, "error": "文件过大（>500KB）"}
     except Exception as e:
         return {"ok": False, "error": f"更新下载失败: {e}"}
 
