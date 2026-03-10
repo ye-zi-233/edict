@@ -23,7 +23,7 @@ MODEL_PRICING = {
 }
 
 OFFICIALS = [
-    {'id':'huanghou','label':'皇后',  'role':'皇后',    'emoji':'👑','rank':'皇后'},
+    {'id':'gongzhu','label':'公主',  'role':'公主',    'emoji':'👑','rank':'公主'},
     {'id':'zhongshu','label':'中书省','role':'中书令',  'emoji':'📜','rank':'正一品'},
     {'id':'menxia',  'label':'门下省','role':'侍中',    'emoji':'🔍','rank':'正一品'},
     {'id':'shangshu','label':'尚书省','role':'尚书令',  'emoji':'📮','rank':'正一品'},
@@ -64,8 +64,8 @@ def get_model(agent_id):
     for a in cfg.get('agents',{}).get('list',[]):
         if a.get('id') == agent_id:
             return normalize_model(a.get('model', default), default)
-    # 兼容历史：皇后曾使用 main 作为运行时 id
-    if agent_id == 'huanghou':
+    # 兼容历史：公主曾使用 main 作为运行时 id
+    if agent_id == 'gongzhu':
         for a in cfg.get('agents',{}).get('list',[]):
             if a.get('id') == 'main':
                 return normalize_model(a.get('model', default), default)
@@ -74,7 +74,7 @@ def get_model(agent_id):
 def scan_agent(agent_id):
     """从 sessions.json 读取 token 统计（累计所有 session）"""
     sj = AGENTS_ROOT / agent_id / 'sessions' / 'sessions.json'
-    if not sj.exists() and agent_id == 'huanghou':
+    if not sj.exists() and agent_id == 'gongzhu':
         sj = AGENTS_ROOT / 'main' / 'sessions' / 'sessions.json'
     if not sj.exists():
         return {'tokens_in':0,'tokens_out':0,'cache_read':0,'cache_write':0,'sessions':0,'last_active':None,'messages':0}

@@ -42,8 +42,8 @@ def state_from_session(age_ms, aborted):
 
 def detect_official(agent_id):
     mapping = {
-        'main':    ('皇后', '皇后'),        # legacy id for huanghou
-        'huanghou':   ('皇后', '皇后'),
+        'main':    ('公主', '公主'),        # legacy id for gongzhu
+        'gongzhu':   ('公主', '公主'),
         'zhongshu': ('中书令', '中书省'),
         'menxia':  ('侍中', '门下省'),
         'shangshu': ('尚书令', '尚书省'),

@@ -2,7 +2,7 @@
 
 对应当前 tasks_source.json 中的每一条任务记录。
 state 对应三省六部流转状态机：
-  Huanghou → Zhongshu → Menxia → Assigned → Doing → Review → Done
+  Gongzhu → Zhongshu → Menxia → Assigned → Doing → Review → Done
 """
 
 import enum
@@ -27,7 +27,7 @@ from ..db import Base
 
 class TaskState(str, enum.Enum):
     """任务状态枚举 — 映射三省六部流程。"""
-    Huanghou = "Huanghou"           # 皇后分拣
+    Gongzhu = "Gongzhu"           # 公主分拣
     Zhongshu = "Zhongshu"     # 中书省起草
     Menxia = "Menxia"         # 门下省审议
     Assigned = "Assigned"     # 尚书省已将任务派发
@@ -45,19 +45,19 @@ TERMINAL_STATES = {TaskState.Done, TaskState.Cancelled}
 
 # 状态流转合法路径
 STATE_TRANSITIONS = {
-    TaskState.Huanghou: {TaskState.Zhongshu, TaskState.Cancelled},
+    TaskState.Gongzhu: {TaskState.Zhongshu, TaskState.Cancelled},
     TaskState.Zhongshu: {TaskState.Menxia, TaskState.Cancelled, TaskState.Blocked},
     TaskState.Menxia: {TaskState.Assigned, TaskState.Zhongshu, TaskState.Cancelled},  # 封驳退回中书
     TaskState.Assigned: {TaskState.Doing, TaskState.Next, TaskState.Cancelled, TaskState.Blocked},
     TaskState.Next: {TaskState.Doing, TaskState.Cancelled},
     TaskState.Doing: {TaskState.Review, TaskState.Done, TaskState.Blocked, TaskState.Cancelled},
     TaskState.Review: {TaskState.Done, TaskState.Doing, TaskState.Cancelled},  # 审查不通过退回
-    TaskState.Blocked: {TaskState.Huanghou, TaskState.Zhongshu, TaskState.Menxia, TaskState.Assigned, TaskState.Doing},
+    TaskState.Blocked: {TaskState.Gongzhu, TaskState.Zhongshu, TaskState.Menxia, TaskState.Assigned, TaskState.Doing},
 }
 
 # 状态 → Agent 映射
 STATE_AGENT_MAP = {
-    TaskState.Huanghou: "huanghou",
+    TaskState.Gongzhu: "gongzhu",
     TaskState.Zhongshu: "zhongshu",
     TaskState.Menxia: "menxia",
     TaskState.Assigned: "shangshu",
@@ -81,8 +81,8 @@ class Task(Base):
 
     id = Column(String(32), primary_key=True, comment="任务ID, e.g. JJC-20260301-001")
     title = Column(Text, nullable=False, comment="任务标题")
-    state = Column(Enum(TaskState, name="task_state"), nullable=False, default=TaskState.Huanghou, index=True)
-    org = Column(String(32), nullable=False, default="皇后", comment="当前执行部门")
+    state = Column(Enum(TaskState, name="task_state"), nullable=False, default=TaskState.Gongzhu, index=True)
+    org = Column(String(32), nullable=False, default="公主", comment="当前执行部门")
     official = Column(String(32), default="", comment="责任官员")
     now = Column(Text, default="", comment="当前进展描述")
     eta = Column(String(64), default="-", comment="预计完成时间")

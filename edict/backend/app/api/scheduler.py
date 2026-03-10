@@ -46,7 +46,7 @@ def _save_tasks(tasks: list):
 
 # 状态 → Agent 映射
 _STATE_AGENT_MAP = {
-    "Huanghou": "huanghou", "Zhongshu": "zhongshu", "Menxia": "menxia",
+    "Gongzhu": "gongzhu", "Zhongshu": "zhongshu", "Menxia": "menxia",
     "Assigned": "shangshu", "Review": "shangshu", "Pending": "zhongshu",
 }
 _ORG_AGENT_MAP = {
@@ -54,7 +54,7 @@ _ORG_AGENT_MAP = {
     "刑部": "xingbu", "工部": "gongbu", "吏部": "libu_hr",
 }
 _STATE_LABELS = {
-    "Pending": "待处理", "Huanghou": "皇后", "Zhongshu": "中书省", "Menxia": "门下省",
+    "Pending": "待处理", "Gongzhu": "公主", "Zhongshu": "中书省", "Menxia": "门下省",
     "Assigned": "尚书省", "Next": "待执行", "Doing": "执行中", "Review": "审查", "Done": "完成",
 }
 
@@ -65,7 +65,7 @@ async def scheduler_scan(body: dict | None = None):
     threshold = (body or {}).get("thresholdSec", 180)
     tasks = _load_tasks()
     actions = []
-    active_states = {"Huanghou", "Zhongshu", "Menxia", "Assigned", "Doing", "Review", "Next"}
+    active_states = {"Gongzhu", "Zhongshu", "Menxia", "Assigned", "Doing", "Review", "Next"}
 
     for task in tasks:
         state = task.get("state", "")

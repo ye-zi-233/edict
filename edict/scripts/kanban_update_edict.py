@@ -40,13 +40,13 @@ _JUNK_TITLES = {
 }
 
 STATE_ORG_MAP = {
-    'Huanghou': '皇后', 'Zhongshu': '中书省', 'Menxia': '门下省', 'Assigned': '尚书省',
+    'Gongzhu': '公主', 'Zhongshu': '中书省', 'Menxia': '门下省', 'Assigned': '尚书省',
     'Doing': '执行中', 'Review': '尚书省', 'Done': '完成', 'Blocked': '阻塞',
 }
 
 # State → Edict TaskState value 映射
 _STATE_TO_EDICT = {
-    'Huanghou': 'huanghou', 'Zhongshu': 'zhongshu', 'Menxia': 'menxia',
+    'Gongzhu': 'gongzhu', 'Zhongshu': 'zhongshu', 'Menxia': 'menxia',
     'Assigned': 'assigned', 'Next': 'next', 'Doing': 'doing',
     'Review': 'review', 'Done': 'done', 'Blocked': 'blocked',
     'Cancelled': 'cancelled', 'Pending': 'pending',

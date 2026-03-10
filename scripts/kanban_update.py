@@ -35,12 +35,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s] %(message
 from file_lock import atomic_json_read, atomic_json_update, atomic_json_write  # noqa: E402
 
 STATE_ORG_MAP = {
-    'Huanghou': '皇后', 'Zhongshu': '中书省', 'Menxia': '门下省', 'Assigned': '尚书省',
+    'Gongzhu': '公主', 'Zhongshu': '中书省', 'Menxia': '门下省', 'Assigned': '尚书省',
     'Doing': '执行中', 'Review': '尚书省', 'Done': '完成', 'Blocked': '阻塞',
 }
 
 _STATE_AGENT_MAP = {
-    'Huanghou': 'main',
+    'Gongzhu': 'main',
     'Zhongshu': 'zhongshu',
     'Menxia': 'menxia',
     'Assigned': 'shangshu',
@@ -55,7 +55,7 @@ _ORG_AGENT_MAP = {
 }
 
 _AGENT_LABELS = {
-    'main': '皇后', 'huanghou': '皇后',
+    'main': '公主', 'gongzhu': '公主',
     'zhongshu': '中书省', 'menxia': '门下省', 'shangshu': '尚书省',
     'libu': '礼部', 'hubu': '户部', 'bingbu': '兵部', 'xingbu': '刑部',
     'gongbu': '工部', 'libu_hr': '吏部', 'zaochao': '钦天监',

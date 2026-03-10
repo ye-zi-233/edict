@@ -42,14 +42,14 @@ chmod +x install.sh && ./install.sh
 
 ## 第三步：配置消息渠道
 
-在 OpenClaw 中配置消息渠道（Feishu / Telegram / Signal），将 `huanghou`（皇后）Agent 设为旨意入口。皇后会自动分拣闲聊与指令，指令类消息提炼标题后转发中书省。
+在 OpenClaw 中配置消息渠道（Feishu / Telegram / Signal），将 `gongzhu`（公主）Agent 设为旨意入口。公主会自动分拣闲聊与指令，指令类消息提炼标题后转发中书省。
 
 ```bash
 # 查看当前渠道
 openclaw channels list
 
-# 添加飞书渠道（入口设为皇后）
-openclaw channels add --type feishu --agent huanghou
+# 添加飞书渠道（入口设为公主）
+openclaw channels add --type feishu --agent gongzhu
 ```
 
 参考 OpenClaw 文档：https://docs.openclaw.ai/channels
@@ -77,7 +77,7 @@ open http://127.0.0.1:7891
 
 ## 第五步：发送第一道旨意
 
-通过消息渠道发送任务（皇后会自动识别并转发到中书省）：
+通过消息渠道发送任务（公主会自动识别并转发到中书省）：
 
 ```
 请帮我用 Python 写一个文本分类器：
@@ -97,7 +97,7 @@ open http://127.0.0.1:7891
 
 任务流转路径：
 ```
-收件 → 皇后分拣 → 中书规划 → 门下审议 → 已派发 → 执行中 → 已完成
+收件 → 公主分拣 → 中书规划 → 门下审议 → 已派发 → 执行中 → 已完成
 ```
 
 ---

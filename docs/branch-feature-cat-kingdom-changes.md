@@ -10,7 +10,7 @@
 
 | 提交 | 日期 | 说明 |
 |------|------|------|
-| `1d5be5f` | 2026-03-06 17:09:18 +0800 | feat: 架构重构 — 新增皇后/女娲角色，移除太子，清理 demo 数据 |
+| `1d5be5f` | 2026-03-06 17:09:18 +0800 | feat: 架构重构 — 新增公主/女娲角色，移除太子，清理 demo 数据 |
 
 ---
 
@@ -23,7 +23,7 @@
 | `.env.example` | 根目录 Docker 部署环境变量模板 |
 | `Dockerfile` | 根目录 Docker 镜像构建文件 |
 | `docker-compose.yaml` | 根目录 Docker Compose 全功能部署编排 |
-| `agents/huanghou/SOUL.md` | 新角色「皇后」— 消息分拣（闲聊直接回/旨意建任务） |
+| `agents/gongzhu/SOUL.md` | 新角色「公主」— 消息分拣（闲聊直接回/旨意建任务） |
 | `agents/nvwa/SOUL.md` | 新角色「女娲」— 灵魂守护 meta-agent（只读分析、起草提案） |
 | `scripts/nvwa_tools.py` | 女娲工具脚本（list-agents/read-soul/read-logs/propose） |
 | `scripts/apply_nvwa_proposal.py` | 女娲提案审批脚本（list/show/approve/reject） |
@@ -68,7 +68,7 @@
 - `agents/zhongshu/SOUL.md`（变动最大，+136/-）
 
 **文档更新：**
-- `README.md` — 主 README，新增皇后/女娲描述、权限矩阵更新
+- `README.md` — 主 README，新增公主/女娲描述、权限矩阵更新
 - `README_EN.md` — 英文 README 同步更新
 - `ROADMAP.md` — 路线图调整
 - `docs/getting-started.md` — 快速开始文档
@@ -117,7 +117,7 @@
 
 ## 核心改动意图
 
-1. **角色架构调整**：移除太子(taizi)，新增皇后(huanghou) + 女娲(nvwa)，重写全部 11 个 Agent 的 SOUL.md
+1. **角色架构调整**：移除太子(taizi)，新增公主(gongzhu) + 女娲(nvwa)，重写全部 11 个 Agent 的 SOUL.md
 2. **demo 数据清理**：删除 `docker/demo_data/` 硬编码演示数据，改为 `.env.example` 配置化方式
 3. **edict 后端精简**：移除大量冗余 API 模块（compat/models/morning/officials/scheduler/skills/task_ops）和对应 service/worker
 4. **Docker 部署重构**：根目录新增独立 Dockerfile + docker-compose.yaml + .env.example，支持一键部署

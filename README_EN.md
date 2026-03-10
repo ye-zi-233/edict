@@ -35,12 +35,12 @@ Most multi-agent frameworks let AI agents talk freely, producing opaque results 
 
 ```
 You (Master) → Queen (Triage) → Planning Dept → Review Dept → Dispatch Dept → 6 Ministries → Report Back
-   主人              皇后               中书省          门下省         尚书省           六部          回奏
+   主人              公主               中书省          门下省         尚书省           六部          回奏
 ```
 
 This isn't a cute metaphor. It's **real separation of powers** for AI:
 
-- **Queen (皇后)** triages messages — casual chat gets auto-replied, real commands become tasks
+- **Queen (公主)** triages messages — casual chat gets auto-replied, real commands become tasks
 - **Planning (中书省)** breaks your command into actionable sub-tasks
 - **Review (门下省)** audits the plan — can reject and force re-planning
 - **Dispatch (尚书省)** assigns approved tasks to specialist ministries
@@ -92,7 +92,7 @@ This is why Edict produces reliable results on complex tasks: there's a mandator
 ## ✨ Features
 
 ### 🏛️ Twelve-Department Agent Architecture
-- **Queen** (皇后) message triage — auto-reply casual chat, create tasks for real commands
+- **Queen** (公主) message triage — auto-reply casual chat, create tasks for real commands
 - **Three Departments** (Planning · Review · Dispatch) for governance
 - **Seven Ministries** (Finance · Docs · Engineering · Compliance · Infrastructure · HR + Briefing) for execution
 - Strict permission matrix — who can message whom is enforced
@@ -199,7 +199,7 @@ Open http://localhost:7891
                            └─────────────────┬─────────────────┘
                                              │ Issue edict
                            ┌─────────────────▼─────────────────┐
-                           │     👑 Queen (皇后)                │
+                           │     👑 Queen (公主)                │
                            │   Triage: chat → reply / cmd → task │
                            └─────────────────┬─────────────────┘
                                              │ Forward edict
@@ -232,7 +232,7 @@ Open http://localhost:7891
 
 | Dept | Agent ID | Role | Expertise |
 |------|----------|------|-----------|
-| 👑 **Queen** | `huanghou` | Triage, summarize | Chat detection, intent extraction |
+| 👑 **Queen** | `gongzhu` | Triage, summarize | Chat detection, intent extraction |
 | 📜 **Planning** | `zhongshu` | Receive, plan, decompose | Requirements, architecture |
 | 🔍 **Review** | `menxia` | Audit, gatekeep, veto | Quality, risk, standards |
 | 📮 **Dispatch** | `shangshu` | Assign, coordinate, collect | Scheduling, tracking |
@@ -270,7 +270,7 @@ Master → Queen Triage → Planning → Review → Assigned → Executing → �
 ```
 edict/
 ├── agents/                     # 12 agent personality templates (SOUL.md)
-│   ├── huanghou/               #   Queen (triage)
+│   ├── gongzhu/               #   Queen (triage)
 │   ├── zhongshu/               #   Planning Dept
 │   ├── menxia/                 #   Review Dept
 │   ├── shangshu/               #   Dispatch Dept

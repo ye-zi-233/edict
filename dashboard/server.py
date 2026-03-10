@@ -560,16 +560,16 @@ def handle_create_task(title, org='中书省', official='中书令', priority='n
         nums = [int(tid.split('-')[-1]) for tid in today_ids if tid.split('-')[-1].isdigit()]
         seq = max(nums) + 1 if nums else 1
     task_id = f'JJC-{today}-{seq:03d}'
-    # 正确流程起点：主人 -> 皇后分拣
+    # 正确流程起点：主人 -> 公主分拣
     # target_dept 记录模板建议的最终执行部门（仅供尚书省派发参考）
-    initial_org = '皇后'
+    initial_org = '公主'
     new_task = {
         'id': task_id,
         'title': title,
         'official': official,
         'org': initial_org,
-        'state': 'Huanghou',
-        'now': '等待皇后接旨分拣',
+        'state': 'Gongzhu',
+        'now': '等待公主接旨分拣',
         'eta': '-',
         'block': '无',
         'output': '',
@@ -596,9 +596,9 @@ def handle_create_task(title, org='中书省', official='中书令', priority='n
     save_tasks(tasks)
     log.info(f'创建任务: {task_id} | {title[:40]}')
 
-    dispatch_for_state(task_id, new_task, 'Huanghou', trigger='imperial-edict')
+    dispatch_for_state(task_id, new_task, 'Gongzhu', trigger='imperial-edict')
 
-    return {'ok': True, 'taskId': task_id, 'message': f'旨意 {task_id} 已下达，正在派发给皇后'}
+    return {'ok': True, 'taskId': task_id, 'message': f'旨意 {task_id} 已下达，正在派发给公主'}
 
 
 def handle_review_action(task_id, action, comment=''):
@@ -657,7 +657,7 @@ def handle_review_action(task_id, action, comment=''):
 # ══ Agent 在线状态检测 ══
 
 _AGENT_DEPTS = [
-    {'id':'huanghou', 'label':'皇后',  'emoji':'👑', 'role':'皇后',     'rank':'皇后'},
+    {'id':'gongzhu', 'label':'公主',  'emoji':'👑', 'role':'公主',     'rank':'公主'},
     {'id':'zhongshu','label':'中书省','emoji':'📜', 'role':'中书令',   'rank':'正一品'},
     {'id':'menxia',  'label':'门下省','emoji':'🔍', 'role':'侍中',     'rank':'正一品'},
     {'id':'shangshu','label':'尚书省','emoji':'📮', 'role':'尚书令',   'rank':'正一品'},
@@ -872,7 +872,7 @@ def wake_agent(agent_id, message=''):
 
 # 状态 → agent_id 映射
 _STATE_AGENT_MAP = {
-    'Huanghou': 'huanghou',
+    'Gongzhu': 'gongzhu',
     'Zhongshu': 'zhongshu',
     'Menxia': 'menxia',
     'Assigned': 'shangshu',
@@ -930,7 +930,7 @@ def _ensure_scheduler(task):
 def _scheduler_add_flow(task, remark, to=''):
     task.setdefault('flow_log', []).append({
         'at': now_iso(),
-        'from': '皇后调度',
+        'from': '公主调度',
         'to': to or task.get('org', ''),
         'remark': f'🧭 {remark}'
     })
@@ -1004,12 +1004,12 @@ def handle_scheduler_retry(task_id, reason=''):
     sched = _ensure_scheduler(task)
     sched['retryCount'] = int(sched.get('retryCount') or 0) + 1
     sched['lastRetryAt'] = now_iso()
-    sched['lastDispatchTrigger'] = 'huanghou-retry'
+    sched['lastDispatchTrigger'] = 'gongzhu-retry'
     _scheduler_add_flow(task, f'触发重试第{sched["retryCount"]}次：{reason or "超时未推进"}')
     task['updatedAt'] = now_iso()
     save_tasks(tasks)
 
-    dispatch_for_state(task_id, task, state, trigger='huanghou-retry')
+    dispatch_for_state(task_id, task, state, trigger='gongzhu-retry')
     return {'ok': True, 'message': f'{task_id} 已触发重试派发', 'retryCount': sched['retryCount']}
 
 
@@ -1035,7 +1035,7 @@ def handle_scheduler_escalate(task_id, reason=''):
     save_tasks(tasks)
 
     msg = (
-        f'🧭 皇后调度升级通知\n'
+        f'🧭 公主调度升级通知\n'
         f'任务ID: {task_id}\n'
         f'当前状态: {state}\n'
         f'停滞处理: 请你介入协调推进\n'
@@ -1061,7 +1061,7 @@ def handle_scheduler_rollback(task_id, reason=''):
     old_state = task.get('state', '')
     task['state'] = snap_state
     task['org'] = snapshot.get('org', task.get('org', ''))
-    task['now'] = f'↩️ 皇后调度自动回滚：{reason or "恢复到上个稳定节点"}'
+    task['now'] = f'↩️ 公主调度自动回滚：{reason or "恢复到上个稳定节点"}'
     task['block'] = '无'
     sched['retryCount'] = 0
     sched['escalationLevel'] = 0
@@ -1072,7 +1072,7 @@ def handle_scheduler_rollback(task_id, reason=''):
     save_tasks(tasks)
 
     if snap_state not in _TERMINAL_STATES:
-        dispatch_for_state(task_id, task, snap_state, trigger='huanghou-rollback')
+        dispatch_for_state(task_id, task, snap_state, trigger='gongzhu-rollback')
 
     return {'ok': True, 'message': f'{task_id} 已回滚到 {snap_state}'}
 
@@ -1115,7 +1115,7 @@ def handle_scheduler_scan(threshold_sec=180):
         if retry_count < max_retry:
             sched['retryCount'] = retry_count + 1
             sched['lastRetryAt'] = now_iso()
-            sched['lastDispatchTrigger'] = 'huanghou-scan-retry'
+            sched['lastDispatchTrigger'] = 'gongzhu-scan-retry'
             _scheduler_add_flow(task, f'停滞{stalled_sec}秒，触发自动重试第{sched["retryCount"]}次')
             pending_retries.append((task_id, state))
             actions.append({'taskId': task_id, 'action': 'retry', 'stalledSec': stalled_sec})
@@ -1141,7 +1141,7 @@ def handle_scheduler_scan(threshold_sec=180):
                 old_state = state
                 task['state'] = snap_state
                 task['org'] = snapshot.get('org', task.get('org', ''))
-                task['now'] = '↩️ 皇后调度自动回滚到稳定节点'
+                task['now'] = '↩️ 公主调度自动回滚到稳定节点'
                 task['block'] = '无'
                 sched['retryCount'] = 0
                 sched['escalationLevel'] = 0
@@ -1158,11 +1158,11 @@ def handle_scheduler_scan(threshold_sec=180):
     for task_id, state in pending_retries:
         retry_task = next((t for t in tasks if t.get('id') == task_id), None)
         if retry_task:
-            dispatch_for_state(task_id, retry_task, state, trigger='huanghou-scan-retry')
+            dispatch_for_state(task_id, retry_task, state, trigger='gongzhu-scan-retry')
 
     for task_id, state, target, target_label, stalled_sec in pending_escalates:
         msg = (
-            f'🧭 皇后调度升级通知\n'
+            f'🧭 公主调度升级通知\n'
             f'任务ID: {task_id}\n'
             f'当前状态: {state}\n'
             f'已停滞: {stalled_sec} 秒\n'
@@ -1174,7 +1174,7 @@ def handle_scheduler_scan(threshold_sec=180):
     for task_id, state in pending_rollbacks:
         rollback_task = next((t for t in tasks if t.get('id') == task_id), None)
         if rollback_task and state not in _TERMINAL_STATES:
-            dispatch_for_state(task_id, rollback_task, state, trigger='huanghou-auto-rollback')
+            dispatch_for_state(task_id, rollback_task, state, trigger='gongzhu-auto-rollback')
 
     return {
         'ok': True,
@@ -1225,15 +1225,15 @@ def handle_repair_flow_order():
         if first.get('from') != '主人' or first.get('to') != '中书省':
             continue
 
-        first['to'] = '皇后'
+        first['to'] = '公主'
         remark = first.get('remark', '')
         if isinstance(remark, str) and remark.startswith('下旨：'):
             first['remark'] = remark
 
         if task.get('state') == 'Zhongshu' and task.get('org') == '中书省' and len(flow_log) == 1:
-            task['state'] = 'Huanghou'
-            task['org'] = '皇后'
-            task['now'] = '等待皇后接旨分拣'
+            task['state'] = 'Gongzhu'
+            task['org'] = '公主'
+            task['now'] = '等待公主接旨分拣'
 
         task['updatedAt'] = now_iso()
         fixed += 1
@@ -1880,17 +1880,17 @@ def get_task_activity(task_id):
 
 # 状态推进顺序（手动推进用）
 _STATE_FLOW = {
-    'Pending':  ('Huanghou', '主人', '皇后', '待处理旨意转交皇后分拣'),
-    'Huanghou': ('Zhongshu', '皇后', '中书省', '皇后分拣完毕，转中书省起草'),
+    'Pending':  ('Gongzhu', '主人', '公主', '待处理旨意转交公主分拣'),
+    'Gongzhu': ('Zhongshu', '公主', '中书省', '公主分拣完毕，转中书省起草'),
     'Zhongshu': ('Menxia', '中书省', '门下省', '中书省方案提交门下省审议'),
     'Menxia':   ('Assigned', '门下省', '尚书省', '门下省准奏，转尚书省派发'),
     'Assigned': ('Doing', '尚书省', '六部', '尚书省开始派发执行'),
     'Next':     ('Doing', '尚书省', '六部', '待执行任务开始执行'),
     'Doing':    ('Review', '六部', '尚书省', '各部完成，进入汇总'),
-    'Review':   ('Done', '尚书省', '皇后', '全流程完成，回奏皇后转报主人'),
+    'Review':   ('Done', '尚书省', '公主', '全流程完成，回奏公主转报主人'),
 }
 _STATE_LABELS = {
-    'Pending': '待处理', 'Huanghou': '皇后', 'Zhongshu': '中书省', 'Menxia': '门下省',
+    'Pending': '待处理', 'Gongzhu': '公主', 'Zhongshu': '中书省', 'Menxia': '门下省',
     'Assigned': '尚书省', 'Next': '待执行', 'Doing': '执行中', 'Review': '审查', 'Done': '完成',
 }
 
@@ -1920,7 +1920,7 @@ def dispatch_for_state(task_id, task, new_state, trigger='state-transition'):
 
     # 根据 agent_id 构造针对性消息
     _msgs = {
-        'huanghou': (
+        'gongzhu': (
             f'📜 主人旨意需要你处理\n'
             f'任务ID: {task_id}\n'
             f'旨意: {title}\n'

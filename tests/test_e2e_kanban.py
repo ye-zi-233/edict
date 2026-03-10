@@ -61,7 +61,7 @@ def test_pure_path_rejected():
 
 # ── TEST 3: 正常标题正常创建
 def test_normal_title():
-    cmd_create('JJC-TEST-E2E-03', '调研工业数据分析大模型应用方案', 'Zhongshu', '中书省', '中书令', '皇后整理旨意')
+    cmd_create('JJC-TEST-E2E-03', '调研工业数据分析大模型应用方案', 'Zhongshu', '中书省', '中书令', '公主整理旨意')
     t = _get_task('JJC-TEST-E2E-03')
     assert t is not None, "正常任务应被创建"
     assert t['title'] == '调研工业数据分析大模型应用方案', f"标题应完整保留: {t['title']}"
@@ -70,7 +70,7 @@ def test_normal_title():
 # ── TEST 4: flow remark 清洗
 def test_flow_remark_cleaned():
     cmd_create('JJC-TEST-E2E-04', '调研工业数据分析大模型应用方案', 'Zhongshu', '中书省', '中书令')
-    cmd_flow('JJC-TEST-E2E-04', '皇后', '中书省', '旨意传达：审查/Users/bingsen/clawd/xxx项目 Conversation blah')
+    cmd_flow('JJC-TEST-E2E-04', '公主', '中书省', '旨意传达：审查/Users/bingsen/clawd/xxx项目 Conversation blah')
     t = _get_task('JJC-TEST-E2E-04')
     assert t is not None
     last_flow = t['flow_log'][-1]

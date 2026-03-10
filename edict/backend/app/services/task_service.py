@@ -46,9 +46,9 @@ class TaskService:
         self,
         title: str,
         task_id: str | None = None,
-        org: str = "太子",
+        org: str = "公主",
         priority: str = "normal",
-        initial_state: TaskState = TaskState.Taizi,
+        initial_state: TaskState = TaskState.Gongzhu,
         target_dept: str = "",
         ac: str = "",
         template_id: str = "",
@@ -59,7 +59,7 @@ class TaskService:
         Args:
             title: 任务标题
             task_id: 可选，不传则自动生成 JJC-YYYYMMDD-xxx
-            org: 当前执行部门，默认 "太子"
+            org: 当前执行部门，默认 "公主"
             priority: 优先级
             initial_state: 初始状态
             target_dept: 目标部门

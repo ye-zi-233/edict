@@ -1,7 +1,7 @@
 """Orchestrator Worker — 消费事件总线，驱动任务状态机。
 
 监听 topic:
-- task.created → 自动派发给太子 agent
+- task.created → 自动派发给公主 agent
 - task.planning.complete → 中书审议完成 → 流转门下
 - task.review.result → 门下审核 → 通过则 Assigned，退回则 Replan
 - task.status → 处理各种状态变更
@@ -123,10 +123,10 @@ class OrchestratorWorker:
             await self._on_task_stalled(payload, trace_id)
 
     async def _on_task_created(self, payload: dict, trace_id: str):
-        """任务创建 → 派发给太子 agent 分拣。"""
+        """任务创建 → 派发给公主 agent 分拣。"""
         task_id = payload.get("task_id")
-        state = payload.get("state", "Taizi")
-        agent = STATE_AGENT_MAP.get(TaskState(state), "taizi")
+        state = payload.get("state", "Gongzhu")
+        agent = STATE_AGENT_MAP.get(TaskState(state), "gongzhu")
 
         await self.bus.publish(
             topic=TOPIC_TASK_DISPATCH,

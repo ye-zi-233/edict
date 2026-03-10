@@ -59,7 +59,7 @@ def _save_tasks(tasks: list):
 
 # 状态 → Agent 映射
 _STATE_AGENT_MAP = {
-    "Huanghou": "huanghou", "Zhongshu": "zhongshu", "Menxia": "menxia",
+    "Gongzhu": "gongzhu", "Zhongshu": "zhongshu", "Menxia": "menxia",
     "Assigned": "shangshu", "Review": "shangshu", "Pending": "zhongshu",
 }
 _ORG_AGENT_MAP = {
@@ -68,17 +68,17 @@ _ORG_AGENT_MAP = {
     "中书省": "zhongshu", "门下省": "menxia", "尚书省": "shangshu",
 }
 _STATE_FLOW = {
-    "Pending":  ("Huanghou", "主人", "皇后", "待处理旨意转交皇后分拣"),
-    "Huanghou": ("Zhongshu", "皇后", "中书省", "皇后分拣完毕，转中书省起草"),
+    "Pending":  ("Gongzhu", "主人", "公主", "待处理旨意转交公主分拣"),
+    "Gongzhu": ("Zhongshu", "公主", "中书省", "公主分拣完毕，转中书省起草"),
     "Zhongshu": ("Menxia", "中书省", "门下省", "中书省方案提交门下省审议"),
     "Menxia":   ("Assigned", "门下省", "尚书省", "门下省准奏，转尚书省派发"),
     "Assigned": ("Doing", "尚书省", "六部", "尚书省开始派发执行"),
     "Next":     ("Doing", "尚书省", "六部", "待执行任务开始执行"),
     "Doing":    ("Review", "六部", "尚书省", "各部完成，进入汇总"),
-    "Review":   ("Done", "尚书省", "皇后", "全流程完成，回奏皇后转报主人"),
+    "Review":   ("Done", "尚书省", "公主", "全流程完成，回奏公主转报主人"),
 }
 _STATE_LABELS = {
-    "Pending": "待处理", "Huanghou": "皇后", "Zhongshu": "中书省", "Menxia": "门下省",
+    "Pending": "待处理", "Gongzhu": "公主", "Zhongshu": "中书省", "Menxia": "门下省",
     "Assigned": "尚书省", "Next": "待执行", "Doing": "执行中", "Review": "审查", "Done": "完成",
 }
 
@@ -151,7 +151,7 @@ async def task_action(body: dict):
         if old_state not in ("Blocked", "Cancelled"):
             return {"ok": False, "error": f"任务状态 {old_state} 无法恢复"}
         _ensure_scheduler(task)
-        prev_state = "Huanghou"
+        prev_state = "Gongzhu"
         flow_log = task.get("flow_log", [])
         for fl in reversed(flow_log):
             s = fl.get("to", "")
@@ -293,7 +293,7 @@ async def create_task(body: dict):
     if not title:
         return {"ok": False, "error": "title 不能为空"}
 
-    org = body.get("org", "皇后")
+    org = body.get("org", "公主")
     priority = body.get("priority", "normal")
     template_id = body.get("templateId", "")
     params = body.get("params", {})
@@ -308,7 +308,7 @@ async def create_task(body: dict):
     task = {
         "id": task_id,
         "title": title,
-        "state": "Huanghou",
+        "state": "Gongzhu",
         "org": org,
         "official": "",
         "now": "📜 新旨意已下达",
@@ -317,7 +317,7 @@ async def create_task(body: dict):
         "output": "",
         "priority": priority,
         "archived": False,
-        "flow_log": [{"at": _now_iso(), "from": "主人", "to": "皇后", "remark": "旨意下达"}],
+        "flow_log": [{"at": _now_iso(), "from": "主人", "to": "公主", "remark": "旨意下达"}],
         "progress_log": [],
         "todos": [],
         "templateId": template_id,
@@ -333,7 +333,7 @@ async def create_task(body: dict):
     tasks.append(task)
     _save_tasks(tasks)
 
-    _dispatch_for_state_sync(task_id, task, "Huanghou", trigger="imperial-edict")
+    _dispatch_for_state_sync(task_id, task, "Gongzhu", trigger="imperial-edict")
     return {"ok": True, "taskId": task_id, "message": f"旨意 {task_id} 已下达"}
 
 
@@ -480,7 +480,7 @@ async def get_scheduler_state(task_id: str):
     org = task.get("org", "")
 
     stalled_sec = 0
-    if state in ("Doing", "Assigned", "Review", "Zhongshu", "Menxia", "Huanghou"):
+    if state in ("Doing", "Assigned", "Review", "Zhongshu", "Menxia", "Gongzhu"):
         updated = task.get("updatedAt", "")
         if updated:
             try:

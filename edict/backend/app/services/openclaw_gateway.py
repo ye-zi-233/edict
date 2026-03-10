@@ -21,7 +21,7 @@ _SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9_\-\u4e00-\u9fff]+$")
 
 # Agent 部门定义（与前端 agents-status 接口兼容）
 AGENT_DEPTS = [
-    {"id": "huanghou", "label": "皇后",  "emoji": "👑", "role": "皇后"},
+    {"id": "gongzhu", "label": "公主",  "emoji": "👑", "role": "公主"},
     {"id": "zhongshu", "label": "中书省", "emoji": "📜", "role": "中书令"},
     {"id": "menxia",   "label": "门下省", "emoji": "🔍", "role": "侍中"},
     {"id": "shangshu", "label": "尚书省", "emoji": "📮", "role": "尚书令"},

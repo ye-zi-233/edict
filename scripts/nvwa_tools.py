@@ -32,7 +32,7 @@ def _proposals_dir():
 
 # 已知 Agent 列表（与 sync_agent_config 的 _SOUL_DEPLOY_MAP 保持一致，供 list-agents / read-soul 使用）
 KNOWN_AGENT_IDS = [
-    'huanghou', 'zhongshu', 'menxia', 'shangshu',
+    'gongzhu', 'zhongshu', 'menxia', 'shangshu',
     'hubu', 'libu', 'bingbu', 'xingbu', 'gongbu', 'libu_hr', 'zaochao', 'nvwa',
 ]
 
