@@ -1,13 +1,12 @@
-"""Legacy 兼容路由 — 通过旧版 task_id (JJC-xxx) 操作任务。
+"""Legacy 兼容路由 — 通过 JJC-xxx 格式 ID 操作任务。
 
-旧版 kanban_update.py 使用自定义 ID (JJC-20260301-007)，
-Edict 使用 UUID。此路由通过 tags 或 meta.legacy_id 映射。
+Task 模型主键本身就是 JJC-YYYYMMDD-NNN 格式的 String，
+因此直接用 Task.id 查询即可，无需绕道 tags/meta。
 """
 
 import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_db
@@ -20,18 +19,8 @@ router = APIRouter()
 
 
 async def _find_by_legacy_id(db: AsyncSession, legacy_id: str) -> Task | None:
-    """通过旧版 ID 查找任务（在 tags 或 meta.legacy_id 中搜索）。"""
-    # 方式1: tags 包含 legacy_id
-    stmt = select(Task).where(Task.tags.contains([legacy_id]))
-    result = await db.execute(stmt)
-    task = result.scalars().first()
-    if task:
-        return task
-
-    # 方式2: meta->legacy_id
-    stmt2 = select(Task).where(Task.meta["legacy_id"].astext == legacy_id)
-    result2 = await db.execute(stmt2)
-    return result2.scalars().first()
+    """通过 JJC-xxx ID 查找任务（即 Task 主键）。"""
+    return await db.get(Task, legacy_id)
 
 
 class LegacyTransition(BaseModel):
@@ -67,8 +56,8 @@ async def legacy_transition(
         raise HTTPException(status_code=400, detail=f"Invalid state: {body.new_state}")
 
     try:
-        t = await svc.transition_state(task.task_id, new_state, body.agent, body.reason)
-        return {"task_id": str(t.task_id), "state": t.state.value}
+        t = await svc.transition_state(task.id, new_state, body.agent, body.reason)
+        return {"task_id": t.id, "state": t.state.value}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -85,7 +74,7 @@ async def legacy_progress(
 
     bus = await get_event_bus()
     svc = TaskService(db, bus)
-    await svc.add_progress(task.task_id, body.agent, body.content)
+    await svc.add_progress(task.id, body.agent, body.content)
     return {"message": "ok"}
 
 
@@ -101,7 +90,7 @@ async def legacy_todos(
 
     bus = await get_event_bus()
     svc = TaskService(db, bus)
-    await svc.update_todos(task.task_id, body.todos)
+    await svc.update_todos(task.id, body.todos)
     return {"message": "ok"}
 
 

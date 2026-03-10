@@ -1,11 +1,13 @@
-"""Tasks API — 任务的 CRUD 和状态流转。"""
+"""Tasks API — 任务的 CRUD 和状态流转。
 
-import uuid
+task_id 为 String 类型（如 "JJC-20260301-001"），非 UUID。
+响应统一使用 Task.to_dict() 格式。
+"""
+
 import logging
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_db
@@ -21,12 +23,13 @@ router = APIRouter()
 
 class TaskCreate(BaseModel):
     title: str
-    description: str = ""
-    priority: str = "中"
-    assignee_org: str | None = None
-    creator: str = "emperor"
-    tags: list[str] = []
-    meta: dict | None = None
+    task_id: str | None = None
+    org: str = "太子"
+    priority: str = "normal"
+    target_dept: str = ""
+    ac: str = ""
+    template_id: str = ""
+    template_params: dict | None = None
 
 
 class TaskTransition(BaseModel):
@@ -48,27 +51,6 @@ class TaskSchedulerUpdate(BaseModel):
     scheduler: dict
 
 
-class TaskOut(BaseModel):
-    task_id: str
-    trace_id: str
-    title: str
-    description: str
-    priority: str
-    state: str
-    assignee_org: str | None
-    creator: str
-    tags: list[str]
-    flow_log: list
-    progress_log: list
-    todos: list
-    scheduler: dict | None
-    created_at: str
-    updated_at: str
-
-    class Config:
-        from_attributes = True
-
-
 # ── 依赖注入 helper ──
 
 async def get_task_service(
@@ -83,7 +65,7 @@ async def get_task_service(
 @router.get("")
 async def list_tasks(
     state: str | None = None,
-    assignee_org: str | None = None,
+    org: str | None = None,
     priority: str | None = None,
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
@@ -93,7 +75,7 @@ async def list_tasks(
     task_state = TaskState(state) if state else None
     tasks = await svc.list_tasks(
         state=task_state,
-        assignee_org=assignee_org,
+        org=org,
         priority=priority,
         limit=limit,
         offset=offset,
@@ -125,19 +107,20 @@ async def create_task(
     """创建新任务。"""
     task = await svc.create_task(
         title=body.title,
-        description=body.description,
+        task_id=body.task_id,
+        org=body.org,
         priority=body.priority,
-        assignee_org=body.assignee_org,
-        creator=body.creator,
-        tags=body.tags,
-        meta=body.meta,
+        target_dept=body.target_dept,
+        ac=body.ac,
+        template_id=body.template_id,
+        template_params=body.template_params,
     )
-    return {"task_id": str(task.task_id), "trace_id": str(task.trace_id), "state": task.state.value}
+    return {"task_id": task.id, "state": task.state.value}
 
 
 @router.get("/{task_id}")
 async def get_task(
-    task_id: uuid.UUID,
+    task_id: str,
     svc: TaskService = Depends(get_task_service),
 ):
     """获取任务详情。"""
@@ -150,7 +133,7 @@ async def get_task(
 
 @router.post("/{task_id}/transition")
 async def transition_task(
-    task_id: uuid.UUID,
+    task_id: str,
     body: TaskTransition,
     svc: TaskService = Depends(get_task_service),
 ):
@@ -167,14 +150,14 @@ async def transition_task(
             agent=body.agent,
             reason=body.reason,
         )
-        return {"task_id": str(task.task_id), "state": task.state.value, "message": "ok"}
+        return {"task_id": task.id, "state": task.state.value, "message": "ok"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{task_id}/dispatch")
 async def dispatch_task(
-    task_id: uuid.UUID,
+    task_id: str,
     agent: str = Query(description="目标 agent"),
     message: str = Query(default="", description="派发消息"),
     svc: TaskService = Depends(get_task_service),
@@ -189,7 +172,7 @@ async def dispatch_task(
 
 @router.post("/{task_id}/progress")
 async def add_progress(
-    task_id: uuid.UUID,
+    task_id: str,
     body: TaskProgress,
     svc: TaskService = Depends(get_task_service),
 ):
@@ -203,7 +186,7 @@ async def add_progress(
 
 @router.put("/{task_id}/todos")
 async def update_todos(
-    task_id: uuid.UUID,
+    task_id: str,
     body: TaskTodoUpdate,
     svc: TaskService = Depends(get_task_service),
 ):
@@ -217,7 +200,7 @@ async def update_todos(
 
 @router.put("/{task_id}/scheduler")
 async def update_scheduler(
-    task_id: uuid.UUID,
+    task_id: str,
     body: TaskSchedulerUpdate,
     svc: TaskService = Depends(get_task_service),
 ):
