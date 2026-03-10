@@ -4,6 +4,8 @@
 - 创建任务 → 发布 task.created 事件
 - 状态流转 → 校验合法性 + 发布状态事件
 - 查询、过滤、聚合
+
+注意：task_id 类型为 str（如 "JJC-20260301-001"），不是 UUID。
 """
 
 import logging
@@ -26,6 +28,13 @@ from .event_bus import (
 log = logging.getLogger("edict.task_service")
 
 
+def _generate_task_id() -> str:
+    """按 JJC-YYYYMMDD-NNN 格式生成任务 ID（序号部分用随机后缀避免并发冲突）。"""
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    short = uuid.uuid4().hex[:6]
+    return f"JJC-{today}-{short}"
+
+
 class TaskService:
     def __init__(self, db: AsyncSession, event_bus: EventBus):
         self.db = db
@@ -36,27 +45,43 @@ class TaskService:
     async def create_task(
         self,
         title: str,
-        description: str = "",
-        priority: str = "中",
-        assignee_org: str | None = None,
-        creator: str = "emperor",
-        tags: list[str] | None = None,
-        initial_state: TaskState = TaskState.TAIZI,
-        meta: dict | None = None,
+        task_id: str | None = None,
+        org: str = "太子",
+        priority: str = "normal",
+        initial_state: TaskState = TaskState.Taizi,
+        target_dept: str = "",
+        ac: str = "",
+        template_id: str = "",
+        template_params: dict | None = None,
     ) -> Task:
-        """创建任务并发布 task.created 事件。"""
+        """创建任务并发布 task.created 事件。
+
+        Args:
+            title: 任务标题
+            task_id: 可选，不传则自动生成 JJC-YYYYMMDD-xxx
+            org: 当前执行部门，默认 "太子"
+            priority: 优先级
+            initial_state: 初始状态
+            target_dept: 目标部门
+            ac: 验收标准
+            template_id: 模板 ID
+            template_params: 模板参数
+        """
         now = datetime.now(timezone.utc)
+        task_id = task_id or _generate_task_id()
+        # trace_id 仅用于事件总线追踪，不持久化到任务表
         trace_id = str(uuid.uuid4())
 
         task = Task(
-            trace_id=trace_id,
+            id=task_id,
             title=title,
-            description=description,
-            priority=priority,
             state=initial_state,
-            assignee_org=assignee_org,
-            creator=creator,
-            tags=tags or [],
+            org=org,
+            priority=priority,
+            target_dept=target_dept,
+            ac=ac,
+            template_id=template_id,
+            template_params=template_params or {},
             flow_log=[
                 {
                     "from": None,
@@ -68,36 +93,33 @@ class TaskService:
             ],
             progress_log=[],
             todos=[],
-            scheduler=None,
-            meta=meta or {},
         )
         self.db.add(task)
         await self.db.flush()
 
-        # 发布事件
         await self.bus.publish(
             topic=TOPIC_TASK_CREATED,
             trace_id=trace_id,
             event_type="task.created",
             producer="task_service",
             payload={
-                "task_id": str(task.task_id),
+                "task_id": task.id,
                 "title": title,
                 "state": initial_state.value,
                 "priority": priority,
-                "assignee_org": assignee_org,
+                "org": org,
             },
         )
 
         await self.db.commit()
-        log.info(f"Created task {task.task_id}: {title} [{initial_state.value}]")
+        log.info(f"Created task {task.id}: {title} [{initial_state.value}]")
         return task
 
     # ── 状态流转 ──
 
     async def transition_state(
         self,
-        task_id: uuid.UUID,
+        task_id: str,
         new_state: TaskState,
         agent: str = "system",
         reason: str = "",
@@ -106,7 +128,6 @@ class TaskService:
         task = await self._get_task(task_id)
         old_state = task.state
 
-        # 校验合法流转
         allowed = STATE_TRANSITIONS.get(old_state, set())
         if new_state not in allowed:
             raise ValueError(
@@ -117,7 +138,6 @@ class TaskService:
         task.state = new_state
         task.updated_at = datetime.now(timezone.utc)
 
-        # 记入 flow_log
         flow_entry = {
             "from": old_state.value,
             "to": new_state.value,
@@ -129,54 +149,56 @@ class TaskService:
             task.flow_log = []
         task.flow_log = [*task.flow_log, flow_entry]
 
-        # 发布状态变更事件
         topic = TOPIC_TASK_COMPLETED if new_state in TERMINAL_STATES else TOPIC_TASK_STATUS
+        trace_id = str(uuid.uuid4())
         await self.bus.publish(
             topic=topic,
-            trace_id=str(task.trace_id),
+            trace_id=trace_id,
             event_type=f"task.state.{new_state.value}",
             producer=agent,
             payload={
-                "task_id": str(task_id),
+                "task_id": task.id,
                 "from": old_state.value,
                 "to": new_state.value,
                 "reason": reason,
+                "org": task.org,
             },
         )
 
         await self.db.commit()
-        log.info(f"Task {task_id} state: {old_state.value} → {new_state.value} by {agent}")
+        log.info(f"Task {task.id} state: {old_state.value} → {new_state.value} by {agent}")
         return task
 
     # ── 派发请求 ──
 
     async def request_dispatch(
         self,
-        task_id: uuid.UUID,
+        task_id: str,
         target_agent: str,
         message: str = "",
     ):
         """发布 task.dispatch 事件，由 DispatchWorker 消费执行。"""
         task = await self._get_task(task_id)
+        trace_id = str(uuid.uuid4())
         await self.bus.publish(
             topic=TOPIC_TASK_DISPATCH,
-            trace_id=str(task.trace_id),
+            trace_id=trace_id,
             event_type="task.dispatch.request",
             producer="task_service",
             payload={
-                "task_id": str(task_id),
+                "task_id": task.id,
                 "agent": target_agent,
                 "message": message,
                 "state": task.state.value,
             },
         )
-        log.info(f"Dispatch requested: task {task_id} → agent {target_agent}")
+        log.info(f"Dispatch requested: task {task.id} → agent {target_agent}")
 
     # ── 进度/备注更新 ──
 
     async def add_progress(
         self,
-        task_id: uuid.UUID,
+        task_id: str,
         agent: str,
         content: str,
     ) -> Task:
@@ -195,7 +217,7 @@ class TaskService:
 
     async def update_todos(
         self,
-        task_id: uuid.UUID,
+        task_id: str,
         todos: list[dict],
     ) -> Task:
         task = await self._get_task(task_id)
@@ -206,7 +228,7 @@ class TaskService:
 
     async def update_scheduler(
         self,
-        task_id: uuid.UUID,
+        task_id: str,
         scheduler: dict,
     ) -> Task:
         task = await self._get_task(task_id)
@@ -217,13 +239,13 @@ class TaskService:
 
     # ── 查询 ──
 
-    async def get_task(self, task_id: uuid.UUID) -> Task:
+    async def get_task(self, task_id: str) -> Task:
         return await self._get_task(task_id)
 
     async def list_tasks(
         self,
         state: TaskState | None = None,
-        assignee_org: str | None = None,
+        org: str | None = None,
         priority: str | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -232,8 +254,8 @@ class TaskService:
         conditions = []
         if state is not None:
             conditions.append(Task.state == state)
-        if assignee_org is not None:
-            conditions.append(Task.assignee_org == assignee_org)
+        if org is not None:
+            conditions.append(Task.org == org)
         if priority is not None:
             conditions.append(Task.priority == priority)
         if conditions:
@@ -250,9 +272,9 @@ class TaskService:
         for t in tasks:
             d = t.to_dict()
             if t.state in TERMINAL_STATES:
-                completed_tasks[str(t.task_id)] = d
+                completed_tasks[t.id] = d
             else:
-                active_tasks[str(t.task_id)] = d
+                active_tasks[t.id] = d
         return {
             "tasks": active_tasks,
             "completed_tasks": completed_tasks,
@@ -260,7 +282,7 @@ class TaskService:
         }
 
     async def count_tasks(self, state: TaskState | None = None) -> int:
-        stmt = select(func.count(Task.task_id))
+        stmt = select(func.count(Task.id))
         if state is not None:
             stmt = stmt.where(Task.state == state)
         result = await self.db.execute(stmt)
@@ -268,7 +290,8 @@ class TaskService:
 
     # ── 内部 ──
 
-    async def _get_task(self, task_id: uuid.UUID) -> Task:
+    async def _get_task(self, task_id: str) -> Task:
+        """根据任务 ID（如 JJC-20260301-001）查找任务。"""
         task = await self.db.get(Task, task_id)
         if task is None:
             raise ValueError(f"Task not found: {task_id}")

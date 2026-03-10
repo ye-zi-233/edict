@@ -125,7 +125,7 @@ class OrchestratorWorker:
     async def _on_task_created(self, payload: dict, trace_id: str):
         """任务创建 → 派发给太子 agent 起草。"""
         task_id = payload.get("task_id")
-        state = payload.get("state", "taizi")
+        state = payload.get("state", "Taizi")
         agent = STATE_AGENT_MAP.get(TaskState(state), "taizi")
 
         await self.bus.publish(
@@ -156,7 +156,7 @@ class OrchestratorWorker:
         agent = STATE_AGENT_MAP.get(new_state)
 
         # 如果进入 assigned 状态，需要查找六部对应 agent
-        if new_state == TaskState.ASSIGNED:
+        if new_state == TaskState.Assigned:
             # 从 payload 获取 assignee_org
             org = payload.get("assignee_org", "")
             agent = ORG_AGENT_MAP.get(org, agent)
