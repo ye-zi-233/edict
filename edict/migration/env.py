@@ -1,6 +1,7 @@
 """Alembic env.py — 支持 async Postgres。"""
 
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -14,6 +15,11 @@ config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# 允许 DATABASE_URL 环境变量覆盖 alembic.ini 中的硬编码地址（Docker 等环境）
+env_database_url = os.environ.get("DATABASE_URL")
+if env_database_url:
+    config.set_main_option("sqlalchemy.url", env_database_url)
 
 # 导入所有模型以注册 metadata
 import sys

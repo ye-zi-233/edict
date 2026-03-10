@@ -54,6 +54,11 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        # 优先读取 DATABASE_URL 环境变量（Docker Compose 场景），
+        # 其次使用 database_url_override 字段，最后从各字段拼接
+        env_url = os.environ.get("DATABASE_URL")
+        if env_url:
+            return env_url
         if self.database_url_override:
             return self.database_url_override
         return (
