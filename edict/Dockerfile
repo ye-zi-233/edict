@@ -11,6 +11,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 Python 依赖
@@ -33,6 +34,11 @@ COPY scripts/ /app/scripts/
 # /etc/passwd 中不固定 uid，HOME 环境变量由 compose 显式传入，避免 getpwuid 查询
 RUN mkdir -p /app/data /home/appuser/.openclaw \
     && chmod 777 /home/appuser /app /app/data
+
+# gosu entrypoint：以 root 启动 → 修复目录权限 → 降权到 PUID:PGID 运行业务进程
+COPY edict/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 EXPOSE 8000
 

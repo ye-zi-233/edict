@@ -5,30 +5,11 @@
 # 访问: http://localhost:${FRONTEND_PORT:-3000}
 
 services:
-  # ── 初始化：在 EDICT_ROOT 下创建子目录并设置权限 ──
-  # postgres 目录由 postgres entrypoint 自行 chown；redis 用 chmod 777；edict 用 chown PUID:PGID
-  init-data-dirs:
-    image: busybox
-    volumes:
-      - ${EDICT_ROOT}:/data
-    environment:
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-    command: >
-      sh -c "
-        mkdir -p /data/postgres /data/redis /data/edict &&
-        chmod 777 /data/redis &&
-        chown -R $$PUID:$$PGID /data/edict
-      "
-    restart: "no"
-
   # ── 基础设施 ──
+  # 数据目录权限由各服务的 docker-entrypoint.sh（gosu）自行处理，无需 init 容器
 
   postgres:
     image: postgres:16-alpine
-    depends_on:
-      init-data-dirs:
-        condition: service_completed_successfully
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-edict}
       POSTGRES_USER: ${POSTGRES_USER:-edict}
@@ -46,9 +27,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    depends_on:
-      init-data-dirs:
-        condition: service_completed_successfully
     # ports:
     #   - "6379:6379"
     volumes:
@@ -68,10 +46,11 @@ services:
     build:
       context: ..
       dockerfile: edict/Dockerfile
-    user: "${PUID:-1000}:${PGID:-1000}"
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
       REDIS_URL: redis://redis:6379/0
       PORT: 8000
@@ -117,8 +96,9 @@ services:
     build:
       context: ..
       dockerfile: edict/Dockerfile
-    user: "${PUID:-1000}:${PGID:-1000}"
     environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
       REDIS_URL: redis://redis:6379/0
       HOME: /home/appuser
@@ -141,8 +121,9 @@ services:
     build:
       context: ..
       dockerfile: edict/Dockerfile
-    user: "${PUID:-1000}:${PGID:-1000}"
     environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
       REDIS_URL: redis://redis:6379/0
       OPENCLAW_PROJECT_DIR: /app
@@ -167,8 +148,9 @@ services:
     build:
       context: ..
       dockerfile: edict/Dockerfile
-    user: "${PUID:-1000}:${PGID:-1000}"
     environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
       REDIS_URL: redis://redis:6379/0
       HOME: /home/appuser
@@ -192,8 +174,9 @@ services:
     build:
       context: ..
       dockerfile: edict/Dockerfile
-    user: "${PUID:-1000}:${PGID:-1000}"
     environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
       REDIS_URL: redis://redis:6379/0
       HOME: /home/appuser

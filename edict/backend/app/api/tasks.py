@@ -24,7 +24,7 @@ router = APIRouter()
 class TaskCreate(BaseModel):
     title: str
     task_id: str | None = None
-    org: str = "太子"
+    org: str = "公主"
     priority: str = "normal"
     target_dept: str = ""
     ac: str = ""
