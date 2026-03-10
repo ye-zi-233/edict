@@ -298,7 +298,6 @@ edict/
 ├── Dockerfile                  # Docker image (dashboard + sync)
 ├── docker-compose.yaml          # Docker Compose orchestration
 ├── .env.example                # Docker deployment config template
-├── install.sh                  # Non-Docker installer (optional)
 └── LICENSE                     # MIT
 ```
 

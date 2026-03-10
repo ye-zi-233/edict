@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
 """
-女娲专用工具 — 只读分析 + 提案生成（不直接修改任何 Agent 配置）。
+女娲专用工具 — 只读分析 + 灵魂调优提案生成（不直接修改任何 Agent 配置）。
 
 供女娲在对话中调用，用于：
 - 读取其他 Agent 的 SOUL.md（感应灵魂）
 - 列出所有 Agent
 - 读取 Agent 近期对话日志
-- 生成修改/新建 Agent 的提案，提交主人审批
+- 生成修改 Agent 灵魂的提案，提交主人审批
 
 用法:
   python3 nvwa_tools.py list-agents
   python3 nvwa_tools.py read-soul <agent_id>
   python3 nvwa_tools.py read-logs <agent_id> [--days 1]
   python3 nvwa_tools.py propose modify-soul <agent_id> --reason "..." --content "<full SOUL.md content>"
-  python3 nvwa_tools.py propose create-agent <agent_id> --label "..." --role "..." --duty "..." --emoji "..." --content "<full SOUL.md>"
 """
 import argparse
 import json
 import pathlib
-import re
 import sys
 from datetime import datetime, timedelta
 
@@ -159,47 +157,8 @@ def cmd_propose_modify_soul(agent_id: str, reason: str, content: str) -> str:
     return f"提案已生成: {pid}\n路径: {out_path}\n请主人审阅后使用 apply_nvwa_proposal.py approve {pid} 执行。"
 
 
-def cmd_propose_create_agent(
-    agent_id: str,
-    label: str,
-    role: str,
-    duty: str,
-    emoji: str,
-    content: str,
-    allow_agents: str = '',
-) -> str:
-    """生成「新建 Agent」的提案（仅写入提案，不创建文件或注册）。"""
-    if not re.match(r'^[a-z][a-z0-9_]*$', agent_id):
-        return "agent_id 须为小写字母开头、仅含小写字母数字下划线"
-    if agent_id in KNOWN_AGENT_IDS:
-        return f"Agent ID 已存在: {agent_id}"
-    pid = _next_proposal_id()
-    allow_list = [x.strip() for x in allow_agents.split(',') if x.strip()]
-    prop = {
-        'id': pid,
-        'type': 'create-agent',
-        'target': agent_id,
-        'label': label,
-        'role': role,
-        'duty': duty,
-        'emoji': emoji,
-        'allowAgents': allow_list,
-        'proposed_content': content,
-        'status': 'pending',
-        'created_at': datetime.now().isoformat(),
-    }
-    proposals_dir = _proposals_dir()
-    proposals_dir.mkdir(parents=True, exist_ok=True)
-    out_path = proposals_dir / f"{pid}.json"
-    try:
-        out_path.write_text(json.dumps(prop, ensure_ascii=False, indent=2), encoding='utf-8')
-    except Exception as e:
-        return f"写入提案失败: {e}"
-    return f"提案已生成: {pid}\n路径: {out_path}\n请主人审阅后使用 apply_nvwa_proposal.py approve {pid} 执行。"
-
-
 def main():
-    parser = argparse.ArgumentParser(description='女娲工具：只读分析 + 提案生成')
+    parser = argparse.ArgumentParser(description='女娲工具：只读分析 + 灵魂调优提案')
     sub = parser.add_subparsers(dest='cmd', help='命令')
 
     sub.add_parser('list-agents', help='列出所有 Agent')
@@ -216,15 +175,6 @@ def main():
     m.add_argument('--reason', required=True, help='修改原因')
     m.add_argument('--content', default='', help='完整的新 SOUL.md 内容')
     m.add_argument('--content-file', default='', help='或从文件读取 SOUL.md 内容（与 --content 二选一）')
-    c = prop_sub.add_parser('create-agent', help='提案：新建 Agent')
-    c.add_argument('agent_id', help='新 Agent ID（小写字母数字下划线）')
-    c.add_argument('--label', required=True, help='显示标签，如 数据部')
-    c.add_argument('--role', required=True, help='角色名，如 数据尚书')
-    c.add_argument('--duty', required=True, help='职责简述')
-    c.add_argument('--emoji', default='📌', help='Emoji')
-    c.add_argument('--content', default='', help='完整 SOUL.md 内容')
-    c.add_argument('--content-file', default='', help='或从文件读取 SOUL.md 内容')
-    c.add_argument('--allow-agents', default='', help='逗号分隔的可调用的 subagent id')
 
     args = parser.parse_args()
 
@@ -243,17 +193,6 @@ def main():
                 print("请提供 --content 或 --content-file")
                 sys.exit(1)
             print(cmd_propose_modify_soul(args.agent_id, args.reason, content))
-        elif args.propose_type == 'create-agent':
-            content = getattr(args, 'content', '') or ''
-            if getattr(args, 'content_file', '') and pathlib.Path(args.content_file).exists():
-                content = pathlib.Path(args.content_file).read_text(encoding='utf-8')
-            if not content:
-                print("请提供 --content 或 --content-file")
-                sys.exit(1)
-            print(cmd_propose_create_agent(
-                args.agent_id, args.label, args.role, args.duty, args.emoji,
-                content, getattr(args, 'allow_agents', '') or ''
-            ))
         else:
             prop.print_help()
     else:

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-主人审批女娲提案 — 审阅、批准或驳回女娲提交的修改/新建 Agent 提案。
+主人审批女娲提案 — 审阅、批准或驳回女娲提交的灵魂调优提案。
 
-女娲只能生成提案，不能直接改配置；本脚本由主人在项目根目录执行，批准后写入 SOUL 或创建新 Agent。
+女娲只能生成提案，不能直接改配置；本脚本由主人在项目根目录执行，批准后写入 SOUL.md。
 
 用法:
   python3 scripts/apply_nvwa_proposal.py list
@@ -94,7 +94,7 @@ def _write_proposal_status(path: pathlib.Path, status: str):
 
 
 def cmd_approve(proposal_id: str):
-    """批准提案并执行：modify-soul 写入 SOUL.md；create-agent 创建新 Agent 的 SOUL.md。"""
+    """批准提案并执行：将调优后的 SOUL.md 写入 agents 目录。"""
     path = _find_proposal(proposal_id)
     if not path:
         print(f"未找到提案: {proposal_id}")
@@ -106,7 +106,7 @@ def cmd_approve(proposal_id: str):
     typ = data.get('type')
     target = data.get('target', '')
     content = data.get('proposed_content', '')
-    if not content and typ in ('modify-soul', 'create-agent'):
+    if not content:
         print("提案缺少 proposed_content")
         sys.exit(1)
 
@@ -115,12 +115,6 @@ def cmd_approve(proposal_id: str):
         soul_path.parent.mkdir(parents=True, exist_ok=True)
         soul_path.write_text(content, encoding='utf-8')
         print(f"已写入: {soul_path}")
-    elif typ == 'create-agent':
-        soul_path = REPO_BASE / 'agents' / target / 'SOUL.md'
-        soul_path.parent.mkdir(parents=True, exist_ok=True)
-        soul_path.write_text(content, encoding='utf-8')
-        print(f"已创建新 Agent SOUL: {soul_path}")
-        print("提醒：新 Agent 需在 scripts/sync_agent_config.py（ID_LABEL、_SOUL_DEPLOY_MAP、EXTRA_AGENTS）与 install.sh 的 AGENTS 中注册，并运行 install 或 sync 后生效。")
     else:
         print(f"未知提案类型: {typ}")
         sys.exit(1)

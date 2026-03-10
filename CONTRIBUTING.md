@@ -37,7 +37,7 @@ cd edict
 git checkout -b feat/my-awesome-feature
 
 # 4. 开发 & 测试
-python3 dashboard/server.py  # 启动看板验证
+docker compose -f edict/docker-compose.yaml up -d  # 启动服务验证
 
 # 5. 提交
 git add .
@@ -52,30 +52,23 @@ git push origin feat/my-awesome-feature
 ## 🏗️ 开发环境
 
 ### 前置条件
-- [OpenClaw](https://openclaw.ai) 已安装
-- Python 3.9+
-- macOS / Linux
+- [OpenClaw](https://openclaw.ai) Gateway 已运行
+- Docker + Docker Compose
+- Node.js 18+（前端开发时需要）
 
 ### 本地启动
 
 ```bash
-# 安装
-./install.sh
-
-# 构建前端（首次或前端代码变更后）
-cd edict/frontend && npm install && npm run build && cd ../..
-
-# 启动数据刷新（后台运行）
-bash scripts/run_loop.sh &
-
-# 启动看板服务器
-python3 dashboard/server.py
+cd edict
+cp .env.example .env
+# 编辑 .env，设置 EDICT_ROOT、OPENCLAW_HOME 等参数
+docker compose up -d
 
 # 打开浏览器
-open http://127.0.0.1:7891
+open http://localhost:3000
 ```
 
-> 💡 **前端开发模式**：`cd edict/frontend && npm run dev` → http://localhost:5173（热重载，自动代理 API 到 7891）
+> 💡 **前端开发模式**：`cd edict/frontend && npm install && npm run dev` → http://localhost:5173
 
 ### 项目结构速览
 
@@ -83,12 +76,12 @@ open http://127.0.0.1:7891
 |----------|------|---------|
 | `edict/frontend/src/components/` | 看板前端组件（React 18 + TypeScript） | 🔥 高 |
 | `edict/frontend/src/index.css` | CSS 样式（CSS 变量主题） | 🔥 高 |
-| `dashboard/server.py` | API 服务器（stdlib，~2200 行） | 🔥 高 |
+| `edict/backend/` | FastAPI 后端 + Worker 进程 | 🔥 高 |
 | `agents/*/SOUL.md` | 12 个 Agent 人格模板 | 🔶 中 |
 | `scripts/kanban_update.py` | 看板 CLI + 数据清洗（~300 行） | 🔶 中 |
 | `scripts/*.py` | 数据同步 / 自动化脚本 | 🔶 中 |
 | `tests/test_e2e_kanban.py` | E2E 看板测试（17 断言） | 🔶 中 |
-| `install.sh` | 安装脚本 | 🟢 低 |
+| `edict/docker-compose.yaml` | Docker 编排配置 | 🟢 低 |
 
 ---
 
@@ -156,7 +149,6 @@ docs: 更新 README 截图
 
 ```bash
 # 编译检查
-python3 -m py_compile dashboard/server.py
 python3 -m py_compile scripts/kanban_update.py
 
 # 前端类型检查 + 构建
@@ -169,9 +161,8 @@ python3 tests/test_e2e_kanban.py
 python3 scripts/refresh_live_data.py
 python3 scripts/sync_agent_config.py
 
-# 启动服务器验证 API
-python3 dashboard/server.py &
-curl -s http://localhost:7891/api/live-status | python3 -m json.tool | head -20
+# Docker 启动后验证 API
+curl -s http://localhost:8000/api/live-status | python3 -m json.tool | head -20
 ```
 
 ---

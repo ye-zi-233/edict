@@ -104,7 +104,6 @@
 
 **根目录脚本/测试/部署：**
 - `.dockerignore` — Docker 忽略规则
-- `install.sh` — 安装脚本
 - `scripts/apply_model_changes.py` — 模型切换脚本
 - `scripts/kanban_update.py` — 看板更新脚本
 - `scripts/run_loop.sh` — 数据刷新循环

@@ -80,6 +80,67 @@ def get_skills(workspace: str):
     return skills
 
 
+def ensure_agents_registered():
+    """确保三省六部 Agent 已注册到 openclaw.json。
+
+    sync worker 首次运行时自动检测并补写缺失的 Agent 注册信息。
+    仅在检测到缺失 Agent 时才写入，幂等安全。
+    """
+    if not OPENCLAW_CFG.exists():
+        log.warning(f'openclaw.json 不存在，跳过 Agent 注册: {OPENCLAW_CFG}')
+        return False
+
+    try:
+        cfg = json.loads(OPENCLAW_CFG.read_text())
+    except Exception as e:
+        log.warning(f'无法读取 openclaw.json: {e}')
+        return False
+
+    # 三省六部完整权限矩阵
+    AGENT_PERMISSIONS = {
+        'gongzhu':  {'allowAgents': ['zhongshu']},
+        'zhongshu': {'allowAgents': ['menxia', 'shangshu']},
+        'menxia':   {'allowAgents': ['shangshu', 'zhongshu']},
+        'shangshu': {'allowAgents': ['zhongshu', 'menxia', 'hubu', 'libu', 'bingbu', 'xingbu', 'gongbu', 'libu_hr']},
+        'hubu':     {'allowAgents': ['shangshu']},
+        'libu':     {'allowAgents': ['shangshu']},
+        'bingbu':   {'allowAgents': ['shangshu']},
+        'xingbu':   {'allowAgents': ['shangshu']},
+        'gongbu':   {'allowAgents': ['shangshu']},
+        'libu_hr':  {'allowAgents': ['shangshu']},
+        'zaochao':  {'allowAgents': []},
+        'nvwa':     {'allowAgents': []},
+    }
+
+    agents_cfg = cfg.setdefault('agents', {})
+    agents_list = agents_cfg.get('list', [])
+    existing_ids = {a.get('id') for a in agents_list}
+
+    added = 0
+    for ag_id, perms in AGENT_PERMISSIONS.items():
+        if ag_id in existing_ids:
+            continue
+        ws = str(pathlib.Path.home() / f'.openclaw/workspace-{ag_id}')
+        pathlib.Path(ws).mkdir(parents=True, exist_ok=True)
+        (pathlib.Path(ws) / 'skills').mkdir(parents=True, exist_ok=True)
+        entry = {
+            'id': ag_id,
+            'workspace': ws,
+            'subagents': perms,
+        }
+        agents_list.append(entry)
+        added += 1
+        log.info(f'  + 注册 Agent: {ag_id}')
+
+    if added > 0:
+        agents_cfg['list'] = agents_list
+        cfg['agents'] = agents_cfg
+        OPENCLAW_CFG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2))
+        log.info(f'✅ {added} 个 Agent 已注册到 openclaw.json')
+        return True
+    return False
+
+
 def main():
     cfg = {}
     try:
@@ -87,6 +148,10 @@ def main():
     except Exception as e:
         log.warning(f'cannot read openclaw.json: {e}')
         return
+
+    # 自动注册缺失的 Agent（首次启动时补写）
+    if ensure_agents_registered():
+        cfg = json.loads(OPENCLAW_CFG.read_text())
 
     agents_cfg = cfg.get('agents', {})
     default_model = normalize_model(agents_cfg.get('defaults', {}).get('model', {}), 'unknown')
@@ -111,18 +176,10 @@ def main():
         })
         seen_ids.add(ag_id)
 
-    # 补充不在 openclaw.json agents list 中的 agent（兼容旧版 main）
+    # 兼容旧版 main agent（与新 gongzhu 等价，已被 ensure_agents_registered 覆盖）
     EXTRA_AGENTS = {
-        'gongzhu': {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-gongzhu'),
-                    'allowAgents': ['zhongshu']},
         'main':    {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-main'),
                     'allowAgents': ['zhongshu','menxia','shangshu','hubu','libu','bingbu','xingbu','gongbu','libu_hr']},
-        'zaochao': {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-zaochao'),
-                    'allowAgents': []},
-        'libu_hr': {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-libu_hr'),
-                    'allowAgents': ['shangshu']},
-        'nvwa':    {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-nvwa'),
-                    'allowAgents': []},
     }
     for ag_id, extra in EXTRA_AGENTS.items():
         if ag_id in seen_ids or ag_id not in ID_LABEL:

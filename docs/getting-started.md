@@ -22,23 +22,22 @@ brew install openclaw
 openclaw init
 ```
 
-## 第二步：克隆并安装三省六部
+## 第二步：克隆并启动
 
 ```bash
 git clone https://github.com/cft0808/edict.git
 cd edict
-chmod +x install.sh && ./install.sh
+cp .env.example .env
+# 编辑 .env，设置 EDICT_ROOT、OPENCLAW_HOME 为宿主机绝对路径，以及 POSTGRES_PASSWORD
+docker compose up -d
 ```
 
-安装脚本会自动完成：
-- ✅ 创建 12 个 Agent Workspace（`~/.openclaw/workspace-*`）
-- ✅ 写入各省部 SOUL.md 人格文件
-- ✅ 注册 Agent 及权限矩阵到 `openclaw.json`
-- ✅ 配置旨意数据清洗规则
-- ✅ 构建 React 前端到 `dashboard/dist/`（需 Node.js 18+）
-- ✅ 初始化数据目录
-- ✅ 执行首次数据同步
-- ✅ 重启 Gateway 使配置生效
+首次启动时 sync worker 自动完成：
+- ✅ 检测并注册 12 个 Agent 到 `openclaw.json`（权限矩阵）
+- ✅ 创建各 Agent Workspace（`~/.openclaw/workspace-*`）
+- ✅ 部署 SOUL.md 人格文件到各 workspace
+- ✅ 同步 scripts 到各 workspace
+- ✅ 初始化 PostgreSQL 数据库（Alembic 迁移）
 
 ## 第三步：配置消息渠道
 
@@ -54,26 +53,15 @@ openclaw channels add --type feishu --agent gongzhu
 
 参考 OpenClaw 文档：https://docs.openclaw.ai/channels
 
-## 第四步：启动服务
+## 第四步：打开看板
 
-```bash
-# 终端 1：数据刷新循环（每 15 秒同步）
-bash scripts/run_loop.sh
-
-# 终端 2：看板服务器
-python3 dashboard/server.py
-
-# 打开浏览器
-open http://127.0.0.1:7891
-```
-
-> 💡 **提示**：`run_loop.sh` 每 15 秒自动同步数据。可用 `&` 后台运行。
+打开 http://localhost:3000 即可使用军机处看板。
 
 > 💡 **前端开发模式**：如果你要修改前端代码，使用 Vite 开发服务器：
 > ```bash
 > cd edict/frontend && npm install && npm run dev
 > ```
-> 访问 http://localhost:5173，Hot Module Replacement 自动刷新。修改完成后运行 `npm run build` 构建生产版本。
+> 访问 http://localhost:5173，Hot Module Replacement 自动刷新。
 
 ## 第五步：发送第一道旨意
 
@@ -89,7 +77,7 @@ open http://127.0.0.1:7891
 
 ## 第六步：观察执行过程
 
-打开看板 http://127.0.0.1:7891
+在看板 http://localhost:3000 中：
 
 1. **📋 旨意看板** — 观察任务在各状态之间流转
 2. **🔭 省部调度** — 查看各部门工作分布
@@ -132,10 +120,13 @@ open http://127.0.0.1:7891
 
 ## ❓ 故障排查
 
-### 看板显示「服务器未启动」
+### 看板无法访问
 ```bash
-# 确认服务器正在运行
-python3 dashboard/server.py
+# 检查服务状态
+docker compose ps
+
+# 查看后端日志
+docker compose logs -f backend
 ```
 
 ### Agent 不响应
@@ -149,11 +140,11 @@ openclaw gateway restart
 
 ### 数据不更新
 ```bash
-# 检查刷新循环是否运行
-ps aux | grep run_loop
+# 检查 sync worker 日志
+docker compose logs -f sync
 
-# 手动执行一次同步
-python3 scripts/refresh_live_data.py
+# 手动执行一次同步（进入容器内）
+docker compose exec backend python3 scripts/refresh_live_data.py
 ```
 
 ### 心跳显示红色 / 告警
@@ -168,7 +159,6 @@ openclaw agent restart <agent-id>
 ### 模型切换后不生效
 等待约 5 秒让 Gateway 重启完成。仍不生效则：
 ```bash
-python3 scripts/apply_model_changes.py
 openclaw gateway restart
 ```
 

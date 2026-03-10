@@ -21,7 +21,7 @@ jobs:
 
       - name: Syntax check (py_compile)
         run: |
-          find scripts dashboard -name '*.py' | while read f; do
+          find scripts edict/backend -name '*.py' | while read f; do
             echo "  checking $f"
             python3 -m py_compile "$f"
           done
@@ -31,6 +31,3 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v
-
-      - name: Shell lint (bash -n)
-        run: bash -n scripts/run_loop.sh
