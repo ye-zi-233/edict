@@ -194,8 +194,12 @@ async def run_orchestrator():
     )
     worker = OrchestratorWorker()
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, lambda: asyncio.create_task(worker.stop()))
 
     await worker.start()
+
+
+if __name__ == "__main__":
+    asyncio.run(run_orchestrator())

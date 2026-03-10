@@ -45,6 +45,7 @@ TERMINAL_STATES = {TaskState.Done, TaskState.Cancelled}
 
 # 状态流转合法路径
 STATE_TRANSITIONS = {
+    TaskState.Pending: {TaskState.Gongzhu, TaskState.Zhongshu, TaskState.Cancelled},  # 待处理 → 分拣后进入公主或中书省
     TaskState.Gongzhu: {TaskState.Zhongshu, TaskState.Cancelled},
     TaskState.Zhongshu: {TaskState.Menxia, TaskState.Cancelled, TaskState.Blocked},
     TaskState.Menxia: {TaskState.Assigned, TaskState.Zhongshu, TaskState.Cancelled},  # 封驳退回中书

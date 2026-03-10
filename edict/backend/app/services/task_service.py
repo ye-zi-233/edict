@@ -288,7 +288,96 @@ class TaskService:
         result = await self.db.execute(stmt)
         return result.scalar_one()
 
+    # ── 归档 ──
+
+    async def archive_task(self, task_id: str, archived: bool = True) -> Task:
+        """设置任务归档标志，不改变任务状态。"""
+        task = await self._get_task(task_id)
+        task.archived = archived
+        task.updated_at = datetime.now(timezone.utc)
+        await self.db.commit()
+        log.info(f"Task {task.id} archived={archived}")
+        return task
+
+    async def bulk_archive_terminal(self) -> int:
+        """批量归档所有终态（Done/Cancelled）且未归档的任务，返回归档数量。"""
+        from sqlalchemy import update as sa_update
+        stmt = (
+            sa_update(Task)
+            .where(Task.state.in_([TaskState.Done, TaskState.Cancelled]))
+            .where(Task.archived == False)  # noqa: E712
+            .values(archived=True, updated_at=datetime.now(timezone.utc))
+        )
+        result = await self.db.execute(stmt)
+        await self.db.commit()
+        count = result.rowcount
+        log.info(f"Bulk archived {count} terminal tasks")
+        return count
+
+    async def resume_task(self, task_id: str, agent: str = "system") -> Task:
+        """从 flow_log 逆序找最近一个非阻塞/终态，强制恢复任务到该状态。
+
+        绕过 STATE_TRANSITIONS 校验，因为 Cancelled 终态不在正向流转表中。
+        """
+        task = await self._get_task(task_id)
+        if task.state not in {TaskState.Blocked, TaskState.Cancelled}:
+            raise ValueError(
+                f"Task {task_id} 状态为 {task.state.value}，只有 Blocked/Cancelled 任务可以恢复"
+            )
+
+        prev_state = TaskState.Pending  # 兜底：回到待处理
+        for entry in reversed(task.flow_log or []):
+            to_val = entry.get("to", "")
+            if to_val and to_val not in ("Blocked", "Cancelled", "Done"):
+                try:
+                    prev_state = TaskState(to_val)
+                    break
+                except ValueError:
+                    continue
+
+        await self._force_transition(task, prev_state, agent, reason=f"任务恢复至 {prev_state.value}")
+        return task
+
     # ── 内部 ──
+
+    async def _force_transition(
+        self,
+        task: Task,
+        new_state: TaskState,
+        agent: str = "system",
+        reason: str = "",
+    ) -> None:
+        """强制状态流转，跳过 STATE_TRANSITIONS 校验（用于恢复、叫停等管理操作）。"""
+        old_state = task.state
+        task.state = new_state
+        task.updated_at = datetime.now(timezone.utc)
+
+        flow_entry = {
+            "from": old_state.value,
+            "to": new_state.value,
+            "agent": agent,
+            "reason": reason,
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+        task.flow_log = [*(task.flow_log or []), flow_entry]
+
+        topic = TOPIC_TASK_COMPLETED if new_state in TERMINAL_STATES else TOPIC_TASK_STATUS
+        await self.bus.publish(
+            topic=topic,
+            trace_id=str(uuid.uuid4()),
+            event_type=f"task.state.{new_state.value}",
+            producer=agent,
+            payload={
+                "task_id": task.id,
+                "from": old_state.value,
+                "to": new_state.value,
+                "reason": reason,
+                "org": task.org,
+            },
+        )
+
+        await self.db.commit()
+        log.info(f"Task {task.id} force-transitioned: {old_state.value} → {new_state.value} by {agent}")
 
     async def _get_task(self, task_id: str) -> Task:
         """根据任务 ID（如 JJC-20260301-001）查找任务。"""
