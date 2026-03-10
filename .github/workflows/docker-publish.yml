@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 env:
-  BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/edict-backend
-  FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/edict-frontend
+  BACKEND_IMAGE: li2412360774/edict-backend
+  FRONTEND_IMAGE: li2412360774/edict-frontend
 
 jobs:
   build-and-push:
