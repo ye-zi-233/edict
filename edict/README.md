@@ -33,7 +33,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-打开 http://localhost:3000 即可使用。数据子目录（postgres/redis/edict）由 `init-data-dirs` 服务在首次启动时自动创建。
+打开 http://localhost:3000 即可使用。数据子目录权限由各服务的 `docker-entrypoint.sh`（gosu 降权）自动处理，无需手动创建。
 
 ### 配置说明
 
@@ -136,8 +136,9 @@ ws.onmessage = (e) => console.log(JSON.parse(e.data));
 ## 注意事项
 
 1. **必须设置绝对路径**：`EDICT_ROOT` 和 `OPENCLAW_HOME` 均需填写宿主机绝对路径，`~` 或相对路径可能解析异常
-2. **首次启动**：`docker compose up -d` 会先由 `init-data-dirs` 创建数据子目录并设置权限，再运行 Alembic 迁移建表
-3. **数据目录权限**：`data/postgres` 由 postgres 镜像自动 chown；`data/redis` 设为 777（redis 内部 uid 999）；`data/edict` chown 给 `PUID:PGID`
-4. **OpenClaw 目录**：通过 volume 挂载到容器，sync worker 需要读取会话文件
-5. **Gateway 通信**：容器内通过 `host.docker.internal` 访问宿主机 Gateway
-6. **生产部署**：`POSTGRES_PASSWORD` 默认值是明文占位，**必须修改**；同时关闭 `DEBUG`
+2. **首次启动**：`docker compose up -d` 会由各服务的 entrypoint 自动创建数据子目录并设置权限，再运行 Alembic 迁移建表
+3. **Agent 自动注册**：sync worker 首次运行时会检测 `openclaw.json` 中缺失的三省六部 Agent，自动补写注册信息并创建 workspace 目录和 skills 子目录，后续周期幂等跳过。SOUL.md 由 `deploy_soul_files()` 自动同步到各 workspace
+4. **数据目录权限**：`data/postgres` 由 postgres 镜像自动 chown；`data/redis` 由 redis 镜像自动处理；`data/edict` 由 backend entrypoint chown 给 `PUID:PGID`
+5. **OpenClaw 目录**：通过 volume 挂载到容器，sync worker 需要读取会话文件
+6. **Gateway 通信**：容器内通过 `host.docker.internal` 访问宿主机 Gateway
+7. **生产部署**：`POSTGRES_PASSWORD` 默认值是明文占位，**必须修改**；同时关闭 `DEBUG`
