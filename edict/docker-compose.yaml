@@ -164,6 +164,9 @@ services:
       OPENCLAW_HOME: /home/appuser/.openclaw
       # 宿主机侧 OpenClaw 目录绝对路径，供 sync_agent_config.py 写入正确的 workspace 路径到 openclaw.json
       OPENCLAW_HOST_HOME: ${OPENCLAW_HOME}
+      # OpenClaw 容器内看到的挂载路径（写入 openclaw.json workspace 字段时使用）
+      # 必须与 OpenClaw 容器挂载点一致（通常为 /home/node/.openclaw）
+      OPENCLAW_AGENT_HOME: ${OPENCLAW_AGENT_HOME:-/home/node/.openclaw}
       OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-http://host.docker.internal:18789}
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
       SYNC_INTERVAL: ${SYNC_INTERVAL:-15}

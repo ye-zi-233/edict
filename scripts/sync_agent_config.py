@@ -71,12 +71,39 @@ _AGENTS_TO_REGISTER = [
 ]
 
 
+def _ws_to_local(ws_str: str) -> str:
+    """将 openclaw.json 中的 workspace 路径转换为本容器可访问的等效路径。
+
+    openclaw.json 中存储 OPENCLAW_AGENT_HOME 前缀的路径（OpenClaw 容器内视角），
+    而 edict sync/backend 容器挂载的是 OPENCLAW_HOME（同一宿主机目录，但挂载点不同）。
+    两者指向同一份数据，需做前缀替换，才能在本容器内正确进行文件读写。
+
+    示例：
+      OPENCLAW_AGENT_HOME=/home/node/.openclaw
+      OPENCLAW_HOME（容器内）=/home/appuser/.openclaw
+      openclaw.json 里：/home/node/.openclaw/workspace-bingbu
+      转换后：          /home/appuser/.openclaw/workspace-bingbu
+    """
+    agent_home = os.environ.get('OPENCLAW_AGENT_HOME', '').strip()
+    if agent_home and ws_str.startswith(agent_home):
+        rel = ws_str[len(agent_home):].lstrip('/')
+        return str(openclaw_home() / rel)
+    return ws_str
+
+
 def _openclaw_host_ws(ag_id: str) -> str:
     """返回可写入 openclaw.json 的 workspace 路径字符串。
 
-    优先使用 OPENCLAW_HOST_HOME 环境变量（Docker Compose 通过该变量透传宿主机绝对路径），
-    回退到波浪号记法（适用于非 Docker 场景，OpenClaw 自行展开 ~）。
+    优先使用 OPENCLAW_AGENT_HOME（OpenClaw 容器内挂载路径，如 /home/node/.openclaw），
+    确保 OpenClaw 进程在自己的容器内能找到正确路径。
+    其次回退到 OPENCLAW_HOST_HOME（宿主机绝对路径，兼容旧版无独立 OpenClaw 容器场景）。
+    最终回退到波浪号记法（非 Docker 场景，OpenClaw 自行展开 ~）。
     """
+    # OpenClaw 容器内看到的挂载路径（最优先，避免容器间路径不一致）
+    agent_home = os.environ.get('OPENCLAW_AGENT_HOME', '').strip()
+    if agent_home:
+        return str(pathlib.Path(agent_home) / f'workspace-{ag_id}')
+    # 宿主机绝对路径（兼容旧版 / 无独立 OpenClaw 容器场景）
     host_home = os.environ.get('OPENCLAW_HOST_HOME', '').strip()
     if host_home:
         return str(pathlib.Path(host_home) / f'workspace-{ag_id}')
@@ -84,16 +111,34 @@ def _openclaw_host_ws(ag_id: str) -> str:
 
 
 def _is_wrong_workspace(ws_str: str, ag_id: str) -> bool:
-    """判断 openclaw.json 中记录的 workspace 路径是否是容器内绝对路径（旧版本遗留问题）。
+    """判断 openclaw.json 中记录的 workspace 路径是否需要修正。
 
-    容器内 HOME=/home/appuser，旧版本写入的路径形如 /home/appuser/.openclaw/workspace-xxx。
-    宿主机无此路径，OpenClaw 找不到 workspace，导致 Agent 无法正常工作。
+    以下情况视为错误路径：
+    1. 空路径
+    2. 与当前 _openclaw_host_ws() 返回值不一致的绝对路径
+       - /home/appuser/... : edict 容器内路径（旧版遗留）
+       - 宿主机绝对路径（如 /volume2/...）：当 OPENCLAW_AGENT_HOME 已设置时，
+         OpenClaw 容器看不到宿主机路径，必须修正为容器内路径
+    波浪号路径（~/.openclaw/...）在非 Docker 场景下视为正确，不做修改。
     """
     if not ws_str:
         return True
+    correct_ws = _openclaw_host_ws(ag_id)
+    # 已经是正确路径 → 无需修正
+    if ws_str == correct_ws:
+        return False
     p = pathlib.Path(ws_str)
-    # 如果是绝对路径且指向 /home/appuser（容器内路径），认为是错误路径
-    if p.is_absolute() and str(p).startswith('/home/appuser/'):
+    if not p.is_absolute():
+        # 波浪号或相对路径 → 非 Docker 场景，保留原值
+        return False
+    # edict 容器内错误路径（旧版本写入的 /home/appuser/...）
+    if str(p).startswith('/home/appuser/'):
+        return True
+    # 宿主机绝对路径：当 OPENCLAW_AGENT_HOME 已设置时视为错误
+    # （OpenClaw 在独立容器内，只能访问自己挂载的路径，不能访问宿主机路径）
+    agent_home = os.environ.get('OPENCLAW_AGENT_HOME', '').strip()
+    host_home = os.environ.get('OPENCLAW_HOST_HOME', '').strip()
+    if agent_home and host_home and str(p).startswith(host_home):
         return True
     return False
 
@@ -234,14 +279,17 @@ def main():
         if ag_id not in ID_LABEL:
             continue
         meta = ID_LABEL[ag_id]
+        # workspace 保留 openclaw.json 中的原始路径（OpenClaw 容器视角）
         workspace = ag.get('workspace', str(openclaw_home() / f'workspace-{ag_id}'))
+        # 文件操作（get_skills）使用本容器可访问的等效路径
+        local_ws = _ws_to_local(workspace)
         result.append({
             'id': ag_id,
             'label': meta['label'], 'role': meta['role'], 'duty': meta['duty'], 'emoji': meta['emoji'],
             'model': normalize_model(ag.get('model', default_model), default_model),
             'defaultModel': default_model,
             'workspace': workspace,
-            'skills': get_skills(workspace),
+            'skills': get_skills(local_ws),
             'allowAgents': ag.get('subagents', {}).get('allowAgents', []),
         })
         seen_ids.add(ag_id)
