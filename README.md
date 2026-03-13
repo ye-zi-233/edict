@@ -261,11 +261,6 @@ exec /usr/local/bin/python3: exec format error
 docker run --platform linux/amd64 -p 7891:7891 cft0808/sansheng-demo
 ```
 
-或使用 docker-compose（已内置 `platform: linux/amd64`）：
-```bash
-docker compose up
-```
-
 </details>
 
 ### 完整安装
@@ -278,9 +273,9 @@ docker compose up
 
 ```bash
 git clone https://github.com/cft0808/edict.git
-cd edict
+cd edict/edict          # 进入部署目录（含 docker-compose.yaml 和 .env.example）
 cp .env.example .env
-# 编辑 .env，设置 OPENCLAW_HOME、OPENCLAW_GATEWAY_URL 等参数
+# 编辑 .env：必填项 EDICT_ROOT（数据目录绝对路径）、OPENCLAW_HOME、POSTGRES_PASSWORD
 docker compose up -d
 ```
 
@@ -292,8 +287,9 @@ docker compose up -d
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
+| `EDICT_ROOT` | 数据根目录绝对路径（postgres/redis/edict 子目录自动创建）| **必填** |
+| `OPENCLAW_HOME` | 宿主机上 OpenClaw 主目录绝对路径 | **必填** |
 | `PUID` / `PGID` | 容器运行用户的 UID/GID，需与 OpenClaw 目录所有者一致 | `1000` |
-| `OPENCLAW_HOME` | 宿主机上 OpenClaw 主目录路径 | `~/.openclaw` |
 | `OPENCLAW_GATEWAY_URL` | Gateway 地址（容器内访问宿主机用 `host.docker.internal`） | `http://host.docker.internal:18789` |
 | `OPENCLAW_GATEWAY_TOKEN` | Gateway 认证 Token，无认证则留空 | 空 |
 | `POSTGRES_PASSWORD` | PostgreSQL 密码 | `edict_secret_change_me` |
@@ -629,11 +625,8 @@ curl -X POST http://127.0.0.1:7891/api/scheduler-scan \
 
 **解决**：
 ```bash
-# 方法 1：指定平台
+# 指定平台运行
 docker run --platform linux/amd64 -p 7891:7891 cft0808/sansheng-demo
-
-# 方法 2：使用 docker-compose（已内置 platform）
-docker compose up
 ```
 
 </details>
