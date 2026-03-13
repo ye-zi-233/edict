@@ -34,7 +34,7 @@ BACKEND_URL = os.environ.get("BACKEND_URL", "http://backend:8000")
 
 
 def _run_script(name: str):
-    """执行单个同步脚本，捕获错误不中断循环。"""
+    """执行单个同步脚本，将脚本输出转发到 sync_worker 日志，不中断循环。"""
     script = SCRIPTS_DIR / name
     if not script.exists():
         log.warning(f"脚本不存在: {script}")
@@ -46,11 +46,21 @@ def _run_script(name: str):
             cwd=str(SCRIPTS_DIR),
             env={**os.environ, "PYTHONPATH": str(SCRIPTS_DIR)},
         )
+        # 将脚本 stdout 中含有关键词的行提升到 INFO，其余保持 DEBUG（避免日志爆量）
+        _keywords = ("✅", "❌", "⚠️", "注册", "修正", "无法读取", "Agent", "soul", "SOUL", "error", "Error", "warning", "Warning")
+        for line in (result.stdout or "").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if any(kw in line for kw in _keywords):
+                log.info(f"[{name}] {line}")
+            else:
+                log.debug(f"[{name}] {line}")
         if result.returncode != 0:
-            stderr = result.stderr[:500] if result.stderr else ""
+            stderr = (result.stderr or "")[:800]
             log.warning(f"❌ {name} 退出码 {result.returncode}: {stderr}")
         else:
-            log.debug(f"✅ {name} 完成")
+            log.info(f"✅ {name} 完成")
     except subprocess.TimeoutExpired:
         log.warning(f"⏰ {name} 超时（120s）")
     except Exception as e:
