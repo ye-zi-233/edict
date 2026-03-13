@@ -3,7 +3,7 @@
 三省六部 · 公共工具函数
 避免 read_json / now_iso 等基础函数在多个脚本中重复定义
 """
-import json, pathlib, datetime, re
+import json, os, pathlib, datetime, re
 
 
 def _strip_json5_comments(text: str) -> str:
@@ -77,6 +77,19 @@ def parse_json5(text: str):
     )
 
     return json.loads(cleaned)
+
+
+def openclaw_home() -> pathlib.Path:
+    """返回 OpenClaw 主目录路径（含 openclaw.json、agents/、workspace-* 等）。
+
+    优先使用 OPENCLAW_HOME 环境变量（docker-compose 显式设置为 /home/appuser/.openclaw）。
+    回退到 Path.home() / '.openclaw'，适用于宿主机直接运行的场景。
+
+    背景：Docker 镜像中 appuser 未写入 /etc/passwd，Path.home() 在该场景下
+    会通过 getpwuid 回退到根目录 /，导致路径错误为 /.openclaw/。
+    """
+    oc = os.environ.get('OPENCLAW_HOME', '').strip()
+    return pathlib.Path(oc) if oc else pathlib.Path.home() / '.openclaw'
 
 
 def read_json(path, default=None):

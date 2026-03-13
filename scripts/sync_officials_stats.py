@@ -2,14 +2,15 @@
 """同步各官员统计数据 → data/officials_stats.json"""
 import json, pathlib, datetime, logging
 from file_lock import atomic_json_write
+from utils import openclaw_home
 
 log = logging.getLogger('officials')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s] %(message)s', datefmt='%H:%M:%S')
 
 BASE = pathlib.Path(__file__).resolve().parent.parent
 DATA = BASE / 'data'
-AGENTS_ROOT = pathlib.Path.home() / '.openclaw' / 'agents'
-OPENCLAW_CFG = pathlib.Path.home() / '.openclaw' / 'openclaw.json'
+AGENTS_ROOT = openclaw_home() / 'agents'
+OPENCLAW_CFG = openclaw_home() / 'openclaw.json'
 
 # Anthropic 定价（每1M token，美元）
 MODEL_PRICING = {
