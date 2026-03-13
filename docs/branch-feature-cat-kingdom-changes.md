@@ -1,8 +1,8 @@
 # feature/cat-kingdom 分支修改总结
 
-> 基准分支：`origin/docker` | 当前分支：`feature/cat-kingdom`
+> 基准分支：`docker` | 当前分支：`feature/cat-kingdom`
 > 生成日期：2026-03-13（更新）
-> 提交数：21 | 涉及文件：64 | 净变更：+2159 / -3565
+> 提交数：22 | 涉及文件：63 | 净变更：+2044 / -3352
 
 ---
 
@@ -10,6 +10,7 @@
 
 | 提交 | 日期 | 说明 |
 |------|------|------|
+| `613fca1` | 2026-03-13 11:30 +0800 | merge(cat): 合并 docker 分支 — docs/scripts/P0修复 + 公众号入口 |
 | `f191606` | 2026-03-13 10:25 +0800 | feat(cat): 补全 nvwa/gongzhu agent 映射，修正 kanban 状态，新增 install.sh |
 | `fbbef47` | 2026-03-13 10:24 +0800 | refactor(cat/edict): taizi 全面替换为 gongzhu，修复数据库 schema 与 API |
 | `3cc3343` | 2026-03-10 23:22 +0800 | merge(docker): 合并 docker 分支 CI 修复 — 按分支名隔离镜像 tag |
@@ -135,10 +136,23 @@
 
 ---
 
+## 即将合入的 docker 新提交（`2fd6147`）
+
+docker 分支新增一个修复提交，内容：
+- `scripts/utils.py`：新增 `parse_json5()`，解决 OpenClaw JSON5 配置文件无法用 `json.loads()` 解析的问题
+- `scripts/sync_agent_config.py`：使用 `parse_json5`、新增 `_openclaw_host_ws()`（workspace 路径用宿主机绝对路径）、移除无效的 `openclaw gateway restart` 调用
+- `scripts/apply_model_changes.py`：使用 `parse_json5` 读取配置
+- `edict/docker-compose.yaml`：sync 服务新增 `OPENCLAW_HOST_HOME: ${OPENCLAW_HOME}` 透传宿主机路径
+- `edict/README.md`：更新注意事项第 3 条说明
+
+合并后不需要额外操作，直接生效。
+
+---
+
 ## 合并 docker 分支时需重点关注
 
 - 被删除的 `docker/demo_data/` 和 edict 后端模块：若 docker 分支有对这些文件的修改，合并时会产生冲突，应选择**删除（ours）**
 - Agent SOUL.md 全部重写：若 docker 分支也改过 SOUL.md，冲突时应以**当前分支为准**
-- 根目录 `Dockerfile` / `docker-compose.yaml` / `.env.example` 是本分支新增的，docker 分支可能也有，需逐文件对比
-- `edict/docker-compose.yaml` 大幅重构，合并时注意服务定义是否兼容
+- `scripts/utils.py` / `scripts/sync_agent_config.py` / `scripts/apply_model_changes.py`：docker `2fd6147` 为权威版本（含 parse_json5 修复），合并冲突时选 **docker 侧**
+- `edict/docker-compose.yaml`：docker `2fd6147` 新增了 `OPENCLAW_HOST_HOME` 环境变量，合并时保留该行
 - `dashboard/server.py` 改动大，若 docker 分支也有改动需手动对比逻辑

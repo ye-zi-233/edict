@@ -6,8 +6,9 @@
 首次运行时会自动检测 openclaw.json 中缺失的三省六部 Agent 并补写注册信息，
 创建 workspace/skills 目录，后续周期幂等跳过（已存在则不重复写入）。
 """
-import json, pathlib, datetime, logging, shutil, subprocess
+import json, os, pathlib, datetime, logging, shutil
 from file_lock import atomic_json_write
+from utils import parse_json5
 
 log = logging.getLogger('sync_agent_config')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s] %(message)s', datefmt='%H:%M:%S')
@@ -70,16 +71,28 @@ _AGENTS_TO_REGISTER = [
 ]
 
 
+def _openclaw_host_ws(ag_id: str) -> str:
+    """返回可写入 openclaw.json 的 workspace 路径字符串。
+
+    优先使用 OPENCLAW_HOST_HOME 环境变量（Docker Compose 通过该变量透传宿主机绝对路径），
+    回退到波浪号记法（适用于非 Docker 场景，OpenClaw 自行展开 ~）。
+    """
+    host_home = os.environ.get('OPENCLAW_HOST_HOME', '').strip()
+    if host_home:
+        return str(pathlib.Path(host_home) / f'workspace-{ag_id}')
+    return f'~/.openclaw/workspace-{ag_id}'
+
+
 def register_missing_agents():
     """检测 openclaw.json 中缺失的三省六部 Agent，自动补写注册信息（幂等）。
 
     首次运行写入后，后续周期检测到 Agent 已存在则直接跳过，不重复修改。
-    写入后尝试调用 openclaw gateway restart 使配置生效；
-    容器环境中 CLI 不可用时仅记录警告，需手动重启 Gateway。
+    写入后 OpenClaw Gateway 会通过文件监听自动热重载（agents 变更无需重启）。
     返回 True 表示有新注册，False 表示无变更。
     """
     try:
-        cfg = json.loads(OPENCLAW_CFG.read_text())
+        # 使用 parse_json5 支持 OpenClaw 配置文件中的注释、无引号键等 JSON5 语法
+        cfg = parse_json5(OPENCLAW_CFG.read_text())
     except Exception as e:
         log.warning(f'无法读取 openclaw.json，跳过 Agent 自动注册: {e}')
         return False
@@ -93,7 +106,8 @@ def register_missing_agents():
         ag_id = ag['id']
         if ag_id in existing_ids:
             continue
-        ws = str(pathlib.Path.home() / f'.openclaw/workspace-{ag_id}')
+        # 使用宿主机侧路径，确保 OpenClaw（运行于宿主机）能正确找到 workspace
+        ws = _openclaw_host_ws(ag_id)
         # 构造注册条目：id + workspace + subagents 权限矩阵
         entry = {'id': ag_id, 'workspace': ws}
         entry.update({k: v for k, v in ag.items() if k != 'id'})
@@ -121,6 +135,7 @@ def register_missing_agents():
         return False
 
     # 创建 workspace 和 skills 子目录（供 OpenClaw 运行时识别）
+    # 容器内通过 volume 挂载写入，实际落盘到宿主机的 OPENCLAW_HOME 目录
     for ag_id in added:
         ws_dir = pathlib.Path.home() / f'.openclaw/workspace-{ag_id}'
         try:
@@ -128,22 +143,9 @@ def register_missing_agents():
         except Exception as e:
             log.warning(f'创建 workspace 目录失败 ({ag_id}): {e}')
 
-    # 尝试重启 Gateway 使新 Agent 配置生效（Docker 容器内可能无 CLI，记警告即可）
-    try:
-        r = subprocess.run(
-            ['openclaw', 'gateway', 'restart'],
-            capture_output=True, text=True, timeout=30,
-        )
-        if r.returncode == 0:
-            log.info('✅ Gateway 重启成功，新 Agent 已生效')
-        else:
-            log.warning('⚠️ Gateway 重启返回非零，请手动运行: openclaw gateway restart')
-    except FileNotFoundError:
-        log.warning('⚠️ 未找到 openclaw CLI（容器环境），请在宿主机手动重启 Gateway: openclaw gateway restart')
-    except subprocess.TimeoutExpired:
-        log.warning('⚠️ Gateway 重启超时，请手动确认')
-    except Exception as e:
-        log.warning(f'⚠️ Gateway 重启异常: {e}')
+    # OpenClaw Gateway 默认以 hybrid 热重载模式监听 openclaw.json 变更，
+    # agents.* 字段变更无需重启即可生效，无需调用 openclaw gateway restart。
+    log.info('✅ openclaw.json 已更新，Gateway 将通过文件监听自动热重载新 Agent')
 
     return True
 
@@ -186,7 +188,7 @@ def main():
 
     cfg = {}
     try:
-        cfg = json.loads(OPENCLAW_CFG.read_text())
+        cfg = parse_json5(OPENCLAW_CFG.read_text())
     except Exception as e:
         log.warning(f'cannot read openclaw.json: {e}')
         return
@@ -257,10 +259,8 @@ def main():
 
 
 # 项目 agents/ 目录名 → 运行时 agent_id 映射
-# gongzhu/nvwa 尚无 SOUL.md 文件（待添加），deploy_soul_files() 会自动跳过不存在的文件
 _SOUL_DEPLOY_MAP = {
     'gongzhu': 'gongzhu',
-    'gongzhu':  'gongzhu',
     'nvwa': 'nvwa',
     'zhongshu': 'zhongshu',
     'menxia': 'menxia',

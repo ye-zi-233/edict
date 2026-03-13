@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """应用 data/pending_model_changes.json → openclaw.json，并验证 Gateway 状态"""
-import json, pathlib, datetime, shutil, logging, glob, os
+import json, os, pathlib, datetime, shutil, logging, glob
 from file_lock import atomic_json_write, atomic_json_read
+from utils import parse_json5
 
 log = logging.getLogger('model_change')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s] %(message)s', datefmt='%H:%M:%S')
@@ -39,7 +40,11 @@ def main():
     if not pending:
         return
 
-    cfg = rj(OPENCLAW_CFG, {})
+    # 使用 parse_json5 支持 OpenClaw 配置文件中的注释与 JSON5 语法
+    try:
+        cfg = parse_json5(OPENCLAW_CFG.read_text())
+    except Exception:
+        cfg = {}
     agents_list = cfg.get('agents', {}).get('list', [])
     default_model = cfg.get('agents', {}).get('defaults', {}).get('model', {}).get('primary', '')
 
