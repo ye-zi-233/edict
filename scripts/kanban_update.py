@@ -40,7 +40,7 @@ STATE_ORG_MAP = {
 }
 
 _STATE_AGENT_MAP = {
-    'Gongzhu': 'main',
+    'Gongzhu': 'gongzhu',
     'Zhongshu': 'zhongshu',
     'Menxia': 'menxia',
     'Assigned': 'shangshu',

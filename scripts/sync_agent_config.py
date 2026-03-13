@@ -2,8 +2,11 @@
 """
 同步 openclaw.json 中的 agent 配置 → data/agent_config.json
 支持自动发现 agent workspace 下的 Skills 目录
+
+首次运行时会自动检测 openclaw.json 中缺失的三省六部 Agent 并补写注册信息，
+创建 workspace/skills 目录，后续周期幂等跳过（已存在则不重复写入）。
 """
-import json, pathlib, datetime, logging
+import json, pathlib, datetime, logging, shutil, subprocess
 from file_lock import atomic_json_write
 
 log = logging.getLogger('sync_agent_config')
@@ -15,8 +18,9 @@ DATA = BASE / 'data'
 OPENCLAW_CFG = pathlib.Path.home() / '.openclaw' / 'openclaw.json'
 
 ID_LABEL = {
-    'gongzhu': {'label': '公主',   'role': '公主',     'duty': '飞书消息分拣与回奏',  'emoji': '👑'},
-    'main':     {'label': '公主',   'role': '公主',     'duty': '飞书消息分拣与回奏',  'emoji': '👑'},  # 兼容旧配置
+    'gongzhu':  {'label': '公主',   'role': '公主',     'duty': '枢纽协调与总揽全局',  'emoji': '👸'},
+    'main':     {'label': '公主',   'role': '公主',     'duty': '枢纽协调与总揽全局',  'emoji': '👸'},  # 兼容旧配置（原 taizi）
+    'nvwa':     {'label': '女娲',   'role': '灵魂守护', 'duty': '灵魂文件守护与管理',  'emoji': '🌸'},
     'zhongshu': {'label': '中书省', 'role': '中书令',   'duty': '起草任务令与优先级',  'emoji': '📜'},
     'menxia':   {'label': '门下省', 'role': '侍中',     'duty': '审议与退回机制',      'emoji': '🔍'},
     'shangshu': {'label': '尚书省', 'role': '尚书令',   'duty': '派单与升级裁决',      'emoji': '📮'},
@@ -27,7 +31,6 @@ ID_LABEL = {
     'gongbu':   {'label': '工部',   'role': '工部尚书', 'duty': '工程交付与自动化',    'emoji': '🔧'},
     'libu_hr':  {'label': '吏部',   'role': '吏部尚书', 'duty': '人事/培训/Agent管理',  'emoji': '👔'},
     'zaochao':  {'label': '钦天监', 'role': '朝报官',   'duty': '每日新闻采集与简报',  'emoji': '📰'},
-    'nvwa':     {'label': '女娲',   'role': '创世者',   'duty': '灵魂调优与新建提案',  'emoji': '🌸'},
 }
 
 KNOWN_MODELS = [
@@ -46,6 +49,103 @@ KNOWN_MODELS = [
     {'id': 'copilot/gemini-2.5-pro',      'label': 'Gemini 2.5 Pro',    'provider': 'Copilot'},
     {'id': 'copilot/o3-mini',             'label': 'o3-mini',           'provider': 'Copilot'},
 ]
+
+
+# 三省六部 Agent 注册表（与 install.sh register_agents() 保持一致）
+# 首次运行时，缺失的 Agent 会被自动写入 openclaw.json
+# gongzhu / nvwa 为扩展角色，subagents 待业务设计确定后补充
+_AGENTS_TO_REGISTER = [
+    {"id": "gongzhu",  "subagents": {"allowAgents": ["zhongshu", "menxia", "shangshu"]}},
+    {"id": "nvwa",     "subagents": {"allowAgents": []}},
+    {"id": "zhongshu", "subagents": {"allowAgents": ["menxia", "shangshu"]}},
+    {"id": "menxia",   "subagents": {"allowAgents": ["shangshu", "zhongshu"]}},
+    {"id": "shangshu", "subagents": {"allowAgents": ["zhongshu", "menxia", "hubu", "libu", "bingbu", "xingbu", "gongbu", "libu_hr"]}},
+    {"id": "hubu",     "subagents": {"allowAgents": ["shangshu"]}},
+    {"id": "libu",     "subagents": {"allowAgents": ["shangshu"]}},
+    {"id": "bingbu",   "subagents": {"allowAgents": ["shangshu"]}},
+    {"id": "xingbu",   "subagents": {"allowAgents": ["shangshu"]}},
+    {"id": "gongbu",   "subagents": {"allowAgents": ["shangshu"]}},
+    {"id": "libu_hr",  "subagents": {"allowAgents": ["shangshu"]}},
+    {"id": "zaochao",  "subagents": {"allowAgents": []}},
+]
+
+
+def register_missing_agents():
+    """检测 openclaw.json 中缺失的三省六部 Agent，自动补写注册信息（幂等）。
+
+    首次运行写入后，后续周期检测到 Agent 已存在则直接跳过，不重复修改。
+    写入后尝试调用 openclaw gateway restart 使配置生效；
+    容器环境中 CLI 不可用时仅记录警告，需手动重启 Gateway。
+    返回 True 表示有新注册，False 表示无变更。
+    """
+    try:
+        cfg = json.loads(OPENCLAW_CFG.read_text())
+    except Exception as e:
+        log.warning(f'无法读取 openclaw.json，跳过 Agent 自动注册: {e}')
+        return False
+
+    agents_cfg = cfg.setdefault('agents', {})
+    agents_list = agents_cfg.get('list', [])
+    existing_ids = {a['id'] for a in agents_list if isinstance(a, dict)}
+
+    added = []
+    for ag in _AGENTS_TO_REGISTER:
+        ag_id = ag['id']
+        if ag_id in existing_ids:
+            continue
+        ws = str(pathlib.Path.home() / f'.openclaw/workspace-{ag_id}')
+        # 构造注册条目：id + workspace + subagents 权限矩阵
+        entry = {'id': ag_id, 'workspace': ws}
+        entry.update({k: v for k, v in ag.items() if k != 'id'})
+        agents_list.append(entry)
+        added.append(ag_id)
+        log.info(f'  + 自动注册 Agent: {ag_id}')
+
+    if not added:
+        log.debug('所有三省六部 Agent 已存在于 openclaw.json，跳过注册')
+        return False
+
+    # 备份原始 openclaw.json（与 apply_model_changes.py 策略一致）
+    bak = OPENCLAW_CFG.parent / f'openclaw.json.bak.register-{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}'
+    try:
+        shutil.copy2(OPENCLAW_CFG, bak)
+    except Exception as e:
+        log.warning(f'备份 openclaw.json 失败（继续写入）: {e}')
+
+    agents_cfg['list'] = agents_list
+    try:
+        OPENCLAW_CFG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
+        log.info(f'✅ 已向 openclaw.json 注册 {len(added)} 个 Agent: {", ".join(added)}')
+    except Exception as e:
+        log.warning(f'写入 openclaw.json 失败: {e}')
+        return False
+
+    # 创建 workspace 和 skills 子目录（供 OpenClaw 运行时识别）
+    for ag_id in added:
+        ws_dir = pathlib.Path.home() / f'.openclaw/workspace-{ag_id}'
+        try:
+            (ws_dir / 'skills').mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            log.warning(f'创建 workspace 目录失败 ({ag_id}): {e}')
+
+    # 尝试重启 Gateway 使新 Agent 配置生效（Docker 容器内可能无 CLI，记警告即可）
+    try:
+        r = subprocess.run(
+            ['openclaw', 'gateway', 'restart'],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode == 0:
+            log.info('✅ Gateway 重启成功，新 Agent 已生效')
+        else:
+            log.warning('⚠️ Gateway 重启返回非零，请手动运行: openclaw gateway restart')
+    except FileNotFoundError:
+        log.warning('⚠️ 未找到 openclaw CLI（容器环境），请在宿主机手动重启 Gateway: openclaw gateway restart')
+    except subprocess.TimeoutExpired:
+        log.warning('⚠️ Gateway 重启超时，请手动确认')
+    except Exception as e:
+        log.warning(f'⚠️ Gateway 重启异常: {e}')
+
+    return True
 
 
 def normalize_model(model_value, fallback='unknown'):
@@ -80,78 +180,16 @@ def get_skills(workspace: str):
     return skills
 
 
-def ensure_agents_registered():
-    """确保三省六部 Agent 已注册到 openclaw.json。
-
-    sync worker 首次运行时自动检测并补写缺失的 Agent 注册信息。
-    仅在检测到缺失 Agent 时才写入，幂等安全。
-    """
-    if not OPENCLAW_CFG.exists():
-        log.warning(f'openclaw.json 不存在，跳过 Agent 注册: {OPENCLAW_CFG}')
-        return False
-
-    try:
-        cfg = json.loads(OPENCLAW_CFG.read_text())
-    except Exception as e:
-        log.warning(f'无法读取 openclaw.json: {e}')
-        return False
-
-    # 三省六部完整权限矩阵
-    AGENT_PERMISSIONS = {
-        'gongzhu':  {'allowAgents': ['zhongshu']},
-        'zhongshu': {'allowAgents': ['menxia', 'shangshu']},
-        'menxia':   {'allowAgents': ['shangshu', 'zhongshu']},
-        'shangshu': {'allowAgents': ['zhongshu', 'menxia', 'hubu', 'libu', 'bingbu', 'xingbu', 'gongbu', 'libu_hr']},
-        'hubu':     {'allowAgents': ['shangshu']},
-        'libu':     {'allowAgents': ['shangshu']},
-        'bingbu':   {'allowAgents': ['shangshu']},
-        'xingbu':   {'allowAgents': ['shangshu']},
-        'gongbu':   {'allowAgents': ['shangshu']},
-        'libu_hr':  {'allowAgents': ['shangshu']},
-        'zaochao':  {'allowAgents': []},
-        'nvwa':     {'allowAgents': []},
-    }
-
-    agents_cfg = cfg.setdefault('agents', {})
-    agents_list = agents_cfg.get('list', [])
-    existing_ids = {a.get('id') for a in agents_list}
-
-    added = 0
-    for ag_id, perms in AGENT_PERMISSIONS.items():
-        if ag_id in existing_ids:
-            continue
-        ws = str(pathlib.Path.home() / f'.openclaw/workspace-{ag_id}')
-        pathlib.Path(ws).mkdir(parents=True, exist_ok=True)
-        (pathlib.Path(ws) / 'skills').mkdir(parents=True, exist_ok=True)
-        entry = {
-            'id': ag_id,
-            'workspace': ws,
-            'subagents': perms,
-        }
-        agents_list.append(entry)
-        added += 1
-        log.info(f'  + 注册 Agent: {ag_id}')
-
-    if added > 0:
-        agents_cfg['list'] = agents_list
-        cfg['agents'] = agents_cfg
-        OPENCLAW_CFG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2))
-        log.info(f'✅ {added} 个 Agent 已注册到 openclaw.json')
-        return True
-    return False
-
-
 def main():
+    # 自动注册缺失 Agent（首次运行写入，后续幂等跳过）
+    register_missing_agents()
+
     cfg = {}
     try:
         cfg = json.loads(OPENCLAW_CFG.read_text())
     except Exception as e:
         log.warning(f'cannot read openclaw.json: {e}')
         return
-
-    # 自动注册缺失的 Agent（首次启动时补写）
-    if ensure_agents_registered():
-        cfg = json.loads(OPENCLAW_CFG.read_text())
 
     agents_cfg = cfg.get('agents', {})
     default_model = normalize_model(agents_cfg.get('defaults', {}).get('model', {}), 'unknown')
@@ -176,10 +214,16 @@ def main():
         })
         seen_ids.add(ag_id)
 
-    # 兼容旧版 main agent（与新 gongzhu 等价，已被 ensure_agents_registered 覆盖）
+    # 补充不在 openclaw.json agents list 中的 agent（兼容旧版 main）
     EXTRA_AGENTS = {
+        'gongzhu': {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-gongzhu'),
+                    'allowAgents': ['zhongshu']},
         'main':    {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-main'),
                     'allowAgents': ['zhongshu','menxia','shangshu','hubu','libu','bingbu','xingbu','gongbu','libu_hr']},
+        'zaochao': {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-zaochao'),
+                    'allowAgents': []},
+        'libu_hr': {'model': default_model, 'workspace': str(pathlib.Path.home() / '.openclaw/workspace-libu_hr'),
+                    'allowAgents': ['shangshu']},
     }
     for ag_id, extra in EXTRA_AGENTS.items():
         if ag_id in seen_ids or ag_id not in ID_LABEL:
@@ -213,8 +257,11 @@ def main():
 
 
 # 项目 agents/ 目录名 → 运行时 agent_id 映射
+# gongzhu/nvwa 尚无 SOUL.md 文件（待添加），deploy_soul_files() 会自动跳过不存在的文件
 _SOUL_DEPLOY_MAP = {
     'gongzhu': 'gongzhu',
+    'gongzhu':  'gongzhu',
+    'nvwa': 'nvwa',
     'zhongshu': 'zhongshu',
     'menxia': 'menxia',
     'shangshu': 'shangshu',
@@ -225,7 +272,6 @@ _SOUL_DEPLOY_MAP = {
     'gongbu': 'gongbu',
     'libu_hr': 'libu_hr',
     'zaochao': 'zaochao',
-    'nvwa': 'nvwa',
 }
 
 def sync_scripts_to_workspaces():
@@ -290,7 +336,7 @@ def deploy_soul_files():
         if src_text != dst_text:
             ws_dst.write_text(src_text, encoding='utf-8')
             deployed += 1
-        # 公主兼容：同步一份到 legacy main agent 目录
+        # 太子兼容：同步一份到 legacy main agent 目录
         if runtime_id == 'gongzhu':
             ag_dst = pathlib.Path.home() / '.openclaw/agents/main/SOUL.md'
             ag_dst.parent.mkdir(parents=True, exist_ok=True)

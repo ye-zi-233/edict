@@ -43,17 +43,18 @@ def state_from_session(age_ms, aborted):
 def detect_official(agent_id):
     mapping = {
         'main':    ('公主', '公主'),        # legacy id for gongzhu
-        'gongzhu':   ('公主', '公主'),
+        'gongzhu': ('公主', '公主'),
+        'nvwa':    ('灵魂守护', '女娲殿'),
         'zhongshu': ('中书令', '中书省'),
-        'menxia':  ('侍中', '门下省'),
+        'menxia':   ('侍中', '门下省'),
         'shangshu': ('尚书令', '尚书省'),
-        'hubu':    ('户部尚书', '户部'),
-        'libu':    ('礼部尚书', '礼部'),
-        'bingbu':  ('兵部尚书', '兵部'),
-        'xingbu':  ('刑部尚书', '刑部'),
-        'gongbu':  ('工部尚书', '工部'),
-        'libu_hr': ('吏部尚书', '吏部'),
-        'zaochao': ('钦天监', '朝报司'),
+        'hubu':     ('户部尚书', '户部'),
+        'libu':     ('礼部尚书', '礼部'),
+        'bingbu':   ('兵部尚书', '兵部'),
+        'xingbu':   ('刑部尚书', '刑部'),
+        'gongbu':   ('工部尚书', '工部'),
+        'libu_hr':  ('吏部尚书', '吏部'),
+        'zaochao':  ('钦天监', '朝报司'),
     }
     return mapping.get(agent_id, ('尚书令', '尚书省'))
 
