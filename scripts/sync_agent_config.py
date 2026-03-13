@@ -83,12 +83,28 @@ def _openclaw_host_ws(ag_id: str) -> str:
     return f'~/.openclaw/workspace-{ag_id}'
 
 
-def register_missing_agents():
-    """检测 openclaw.json 中缺失的三省六部 Agent，自动补写注册信息（幂等）。
+def _is_wrong_workspace(ws_str: str, ag_id: str) -> bool:
+    """判断 openclaw.json 中记录的 workspace 路径是否是容器内绝对路径（旧版本遗留问题）。
 
-    首次运行写入后，后续周期检测到 Agent 已存在则直接跳过，不重复修改。
+    容器内 HOME=/home/appuser，旧版本写入的路径形如 /home/appuser/.openclaw/workspace-xxx。
+    宿主机无此路径，OpenClaw 找不到 workspace，导致 Agent 无法正常工作。
+    """
+    if not ws_str:
+        return True
+    p = pathlib.Path(ws_str)
+    # 如果是绝对路径且指向 /home/appuser（容器内路径），认为是错误路径
+    if p.is_absolute() and str(p).startswith('/home/appuser/'):
+        return True
+    return False
+
+
+def register_missing_agents():
+    """检测 openclaw.json 中缺失或 workspace 路径错误的三省六部 Agent，自动补写/修正（幂等）。
+
+    - 缺失的 Agent：添加完整注册条目
+    - 已存在但 workspace 路径为容器内绝对路径（旧版本遗留）的 Agent：更新为正确的宿主机路径
     写入后 OpenClaw Gateway 会通过文件监听自动热重载（agents 变更无需重启）。
-    返回 True 表示有新注册，False 表示无变更。
+    返回 True 表示有变更，False 表示无变更。
     """
     try:
         # 使用 parse_json5 支持 OpenClaw 配置文件中的注释、无引号键等 JSON5 语法
@@ -99,24 +115,35 @@ def register_missing_agents():
 
     agents_cfg = cfg.setdefault('agents', {})
     agents_list = agents_cfg.get('list', [])
-    existing_ids = {a['id'] for a in agents_list if isinstance(a, dict)}
+
+    # 构建 id → 列表索引的映射，方便原地修改
+    id_to_idx = {a['id']: i for i, a in enumerate(agents_list) if isinstance(a, dict)}
 
     added = []
+    fixed = []
     for ag in _AGENTS_TO_REGISTER:
         ag_id = ag['id']
-        if ag_id in existing_ids:
-            continue
-        # 使用宿主机侧路径，确保 OpenClaw（运行于宿主机）能正确找到 workspace
-        ws = _openclaw_host_ws(ag_id)
-        # 构造注册条目：id + workspace + subagents 权限矩阵
-        entry = {'id': ag_id, 'workspace': ws}
-        entry.update({k: v for k, v in ag.items() if k != 'id'})
-        agents_list.append(entry)
-        added.append(ag_id)
-        log.info(f'  + 自动注册 Agent: {ag_id}')
+        correct_ws = _openclaw_host_ws(ag_id)
 
-    if not added:
-        log.debug('所有三省六部 Agent 已存在于 openclaw.json，跳过注册')
+        if ag_id not in id_to_idx:
+            # Agent 完全不存在 → 添加
+            entry = {'id': ag_id, 'workspace': correct_ws}
+            entry.update({k: v for k, v in ag.items() if k != 'id'})
+            agents_list.append(entry)
+            id_to_idx[ag_id] = len(agents_list) - 1
+            added.append(ag_id)
+            log.info(f'  + 自动注册 Agent: {ag_id}')
+        else:
+            # Agent 已存在 → 检查 workspace 路径是否是容器内错误路径
+            existing = agents_list[id_to_idx[ag_id]]
+            old_ws = existing.get('workspace', '')
+            if _is_wrong_workspace(old_ws, ag_id):
+                existing['workspace'] = correct_ws
+                fixed.append(ag_id)
+                log.info(f'  ~ 修正 Agent workspace: {ag_id}: {old_ws!r} → {correct_ws!r}')
+
+    if not added and not fixed:
+        log.debug('所有三省六部 Agent 已存在于 openclaw.json 且路径正确，跳过注册')
         return False
 
     # 备份原始 openclaw.json（与 apply_model_changes.py 策略一致）
@@ -129,7 +156,10 @@ def register_missing_agents():
     agents_cfg['list'] = agents_list
     try:
         OPENCLAW_CFG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
-        log.info(f'✅ 已向 openclaw.json 注册 {len(added)} 个 Agent: {", ".join(added)}')
+        if added:
+            log.info(f'✅ 已向 openclaw.json 注册 {len(added)} 个 Agent: {", ".join(added)}')
+        if fixed:
+            log.info(f'✅ 已修正 {len(fixed)} 个 Agent 的 workspace 路径: {", ".join(fixed)}')
     except Exception as e:
         log.warning(f'写入 openclaw.json 失败: {e}')
         return False
