@@ -9,7 +9,9 @@ if [ "$(id -u)" = '0' ]; then
 
     mkdir -p /app/data /home/appuser/.openclaw
     chown -R "$target_uid:$target_gid" /app/data
-    chown "$target_uid:$target_gid" /home/appuser /home/appuser/.openclaw
+    # 递归修改 .openclaw 目录及其内部文件所有权，确保容器进程（PUID:PGID）
+    # 可读写 openclaw.json，避免 "Permission denied" 错误
+    chown -R "$target_uid:$target_gid" /home/appuser /home/appuser/.openclaw
 
     exec gosu "$target_uid:$target_gid" "$@"
 fi
