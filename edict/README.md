@@ -52,6 +52,8 @@ docker compose up -d
 | `MAX_DISPATCH_RETRY` | 派发最大重试次数 | `3` |
 | `FEISHU_DELIVER` | 是否推送飞书 | `true` |
 
+> `OPENCLAW_HOST_HOME` 由 docker-compose.yaml 自动从 `${OPENCLAW_HOME}`（.env 中的宿主机绝对路径）派生，无需手动设置。sync worker 通过该变量将 Agent workspace 写为宿主机可读的正确路径；非 Docker 场景（直接在宿主机运行脚本）可忽略此变量。
+
 ### 常用命令
 
 ```bash
@@ -137,7 +139,7 @@ ws.onmessage = (e) => console.log(JSON.parse(e.data));
 
 1. **必须设置绝对路径**：`EDICT_ROOT` 和 `OPENCLAW_HOME` 均需填写宿主机绝对路径，`~` 或相对路径可能解析异常
 2. **首次启动**：`docker compose up -d` 会由各服务的 entrypoint 自动创建数据子目录并设置权限，再运行 Alembic 迁移建表
-3. **Agent 自动注册**：sync worker 首次运行时会检测 `openclaw.json` 中缺失的三省六部 Agent，自动补写注册信息并创建 workspace 目录和 skills 子目录，后续周期幂等跳过。SOUL.md 由 `deploy_soul_files()` 自动同步到各 workspace
+3. **Agent 自动注册**：sync worker 首次运行时调用 `sync_agent_config.py` 中的 `register_missing_agents()`，检测 `openclaw.json` 中缺失的三省六部 Agent，自动补写注册条目（含 workspace 路径与 subagents 权限矩阵）并创建 workspace/skills 子目录，后续周期幂等跳过。OpenClaw Gateway 默认以 `hybrid` 热重载模式监听 `openclaw.json` 文件变更，`agents.*` 字段变更**无需重启**即可生效，新代理会自动出现在控制台。SOUL.md 由 `deploy_soul_files()` 自动同步到各 workspace。**重要**：`sync_agent_config.py` 通过 `parse_json5()` 解析 OpenClaw 的 JSON5 格式配置文件（支持注释、无引号键），workspace 路径通过 `OPENCLAW_HOST_HOME` 环境变量使用宿主机绝对路径，确保 OpenClaw 能正确找到 workspace 目录
 4. **数据目录权限**：`data/postgres` 由 postgres 镜像自动 chown；`data/redis` 由 redis 镜像自动处理；`data/edict` 由 backend entrypoint chown 给 `PUID:PGID`
 5. **OpenClaw 目录**：通过 volume 挂载到容器，sync worker 需要读取会话文件
 6. **Gateway 通信**：容器内通过 `host.docker.internal` 访问宿主机 Gateway

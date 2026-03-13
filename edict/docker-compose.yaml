@@ -155,6 +155,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       HOME: /home/appuser
       OPENCLAW_HOME: /home/appuser/.openclaw
+      # 宿主机侧 OpenClaw 目录绝对路径，供 sync_agent_config.py 写入正确的 workspace 路径到 openclaw.json
+      OPENCLAW_HOST_HOME: ${OPENCLAW_HOME}
       OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-http://host.docker.internal:18789}
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
       SYNC_INTERVAL: ${SYNC_INTERVAL:-15}
