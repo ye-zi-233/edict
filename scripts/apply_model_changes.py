@@ -2,14 +2,14 @@
 """应用 data/pending_model_changes.json → openclaw.json，并验证 Gateway 状态"""
 import json, os, pathlib, datetime, shutil, logging, glob
 from file_lock import atomic_json_write, atomic_json_read
-from utils import parse_json5
+from utils import parse_json5, openclaw_home
 
 log = logging.getLogger('model_change')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s] %(message)s', datefmt='%H:%M:%S')
 
 BASE = pathlib.Path(__file__).parent.parent
 DATA = BASE / 'data'
-OPENCLAW_CFG = pathlib.Path.home() / '.openclaw' / 'openclaw.json'
+OPENCLAW_CFG = openclaw_home() / 'openclaw.json'
 PENDING = DATA / 'pending_model_changes.json'
 CHANGE_LOG = DATA / 'model_change_log.json'
 MAX_BACKUPS = 10
