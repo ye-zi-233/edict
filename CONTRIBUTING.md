@@ -59,7 +59,7 @@ git push origin feat/my-awesome-feature
 ### 本地启动
 
 ```bash
-cd edict
+cd edict/edict          # 进入部署目录（含 docker-compose.yaml 和 .env.example）
 cp .env.example .env
 # 编辑 .env，设置 EDICT_ROOT、OPENCLAW_HOME 等参数
 docker compose up -d
@@ -150,9 +150,6 @@ docs: 更新 README 截图
 ```bash
 # 编译检查
 python3 -m py_compile scripts/kanban_update.py
-
-# 前端类型检查 + 构建
-cd edict/frontend && npx tsc -b && npm run build && cd ../..
 
 # E2E 看板测试（9 场景 17 断言）
 python3 tests/test_e2e_kanban.py

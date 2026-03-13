@@ -170,3 +170,4 @@ openclaw gateway restart
 - [📖 README](../README.md)
 - [🤝 贡献指南](../CONTRIBUTING.md)
 - [💬 OpenClaw 文档](https://docs.openclaw.ai)
+- [📮 公众号 · cft0808](wechat.md) — 架构拆解 / 踩坑复盘 / Token 省钱术
