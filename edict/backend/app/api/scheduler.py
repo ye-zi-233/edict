@@ -44,7 +44,8 @@ def _save_tasks(tasks: list):
     _write_json(DATA / "tasks_source.json", tasks)
 
 
-# 状态 → Agent 映射
+# 状态 → Agent 映射（与 task.py STATE_AGENT_MAP 保持一致）
+# Pending 无对应 Agent（初始态），由 orchestrator 推进到 Gongzhu 后派发
 _STATE_AGENT_MAP = {
     "Gongzhu": "gongzhu", "Zhongshu": "zhongshu", "Menxia": "menxia",
     "Assigned": "shangshu", "Review": "shangshu", "Pending": "zhongshu",
@@ -65,7 +66,8 @@ async def scheduler_scan(body: dict | None = None):
     threshold = (body or {}).get("thresholdSec", 180)
     tasks = _load_tasks()
     actions = []
-    active_states = {"Gongzhu", "Zhongshu", "Menxia", "Assigned", "Doing", "Review", "Next"}
+    # Pending 也纳入扫描，防止新建任务长期卡在初始态
+    active_states = {"Pending", "Gongzhu", "Zhongshu", "Menxia", "Assigned", "Doing", "Review", "Next"}
 
     for task in tasks:
         state = task.get("state", "")
@@ -140,9 +142,9 @@ async def scheduler_retry(body: dict):
     task["updatedAt"] = _now_iso()
     _save_tasks(tasks)
 
-    # 触发派发（导入避免循环）
-    from .task_ops import _dispatch_for_state_sync
-    _dispatch_for_state_sync(task_id, task, state, trigger=f"manual-retry: {reason}")
+    # 注意：JSON 旁路调度器无法直接触发 Agent 派发，
+    # 新架构（PostgreSQL 任务）的自动重派发由 OrchestratorWorker 的事件总线处理。
+    # 如任务在 PostgreSQL 中，请使用 /api/advance-state 端点手动推进。
 
     return {"ok": True, "message": f"{task_id} 已触发重试（第{retry_count}次）", "retryCount": retry_count}
 
@@ -203,7 +205,7 @@ async def scheduler_rollback(body: dict):
     task["updatedAt"] = _now_iso()
     _save_tasks(tasks)
 
-    from .task_ops import _dispatch_for_state_sync
-    _dispatch_for_state_sync(task_id, task, rollback_state, trigger=f"rollback: {reason}")
+    # 注意：JSON 旁路调度器无法直接触发 Agent 派发，
+    # 新架构（PostgreSQL 任务）的回滚请通过 /api/task-action(resume) 完成。
 
     return {"ok": True, "message": f"{task_id} 已回滚至 {_STATE_LABELS.get(rollback_state, rollback_state)}"}

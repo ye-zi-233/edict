@@ -27,7 +27,7 @@ from ..db import Base
 
 class TaskState(str, enum.Enum):
     """任务状态枚举 — 映射三省六部流程。"""
-    Gongzhu = "Gongzhu"           # 公主分拣
+    Gongzhu = "Gongzhu"       # 公主分拣
     Zhongshu = "Zhongshu"     # 中书省起草
     Menxia = "Menxia"         # 门下省审议
     Assigned = "Assigned"     # 尚书省已将任务派发

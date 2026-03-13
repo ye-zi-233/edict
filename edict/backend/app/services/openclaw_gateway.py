@@ -21,7 +21,7 @@ _SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9_\-\u4e00-\u9fff]+$")
 
 # Agent 部门定义（与前端 agents-status 接口兼容）
 AGENT_DEPTS = [
-    {"id": "gongzhu", "label": "公主",  "emoji": "👑", "role": "公主"},
+    {"id": "gongzhu",  "label": "公主",   "emoji": "👸", "role": "公主"},
     {"id": "zhongshu", "label": "中书省", "emoji": "📜", "role": "中书令"},
     {"id": "menxia",   "label": "门下省", "emoji": "🔍", "role": "侍中"},
     {"id": "shangshu", "label": "尚书省", "emoji": "📮", "role": "尚书令"},
@@ -30,9 +30,9 @@ AGENT_DEPTS = [
     {"id": "bingbu",   "label": "兵部",  "emoji": "⚔️", "role": "兵部尚书"},
     {"id": "xingbu",   "label": "刑部",  "emoji": "⚖️", "role": "刑部尚书"},
     {"id": "gongbu",   "label": "工部",  "emoji": "🔧", "role": "工部尚书"},
-    {"id": "libu_hr",  "label": "吏部",  "emoji": "📋", "role": "吏部尚书"},
-    {"id": "zaochao",  "label": "早朝官", "emoji": "🌅", "role": "早朝官"},
-    {"id": "nvwa",     "label": "女娲",  "emoji": "🌸", "role": "灵魂守护"},
+    {"id": "libu_hr",  "label": "吏部",   "emoji": "👔", "role": "吏部尚书"},
+    {"id": "zaochao",  "label": "钦天监", "emoji": "📰", "role": "朝报官"},
+    {"id": "nvwa",     "label": "女娲",   "emoji": "🌸", "role": "灵魂守护"},
 ]
 
 

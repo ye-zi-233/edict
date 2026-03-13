@@ -137,7 +137,7 @@ ws.onmessage = (e) => console.log(JSON.parse(e.data));
 
 1. **必须设置绝对路径**：`EDICT_ROOT` 和 `OPENCLAW_HOME` 均需填写宿主机绝对路径，`~` 或相对路径可能解析异常
 2. **首次启动**：`docker compose up -d` 会由各服务的 entrypoint 自动创建数据子目录并设置权限，再运行 Alembic 迁移建表
-3. **Agent 自动注册**：sync worker 首次运行时会检测 `openclaw.json` 中缺失的三省六部 Agent，自动补写注册信息并创建 workspace 目录和 skills 子目录，后续周期幂等跳过。SOUL.md 由 `deploy_soul_files()` 自动同步到各 workspace
+3. **Agent 自动注册**：sync worker 首次运行时调用 `sync_agent_config.py` 中的 `register_missing_agents()`，检测 `openclaw.json` 中缺失的三省六部 Agent，自动补写注册条目（含 workspace 路径与 subagents 权限矩阵）并创建 workspace/skills 子目录，后续周期幂等跳过。注册完成后脚本会尝试调用 `openclaw gateway restart` 使配置生效；**在 Docker 容器内 openclaw CLI 不可用时，注册写入仍会完成，但需在宿主机手动执行一次 `openclaw gateway restart`（或通过 OpenClaw UI 重启 Gateway）才能在控制台看到新代理**。SOUL.md 由 `deploy_soul_files()` 自动同步到各 workspace
 4. **数据目录权限**：`data/postgres` 由 postgres 镜像自动 chown；`data/redis` 由 redis 镜像自动处理；`data/edict` 由 backend entrypoint chown 给 `PUID:PGID`
 5. **OpenClaw 目录**：通过 volume 挂载到容器，sync worker 需要读取会话文件
 6. **Gateway 通信**：容器内通过 `host.docker.internal` 访问宿主机 Gateway
