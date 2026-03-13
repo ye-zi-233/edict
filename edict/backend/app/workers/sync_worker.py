@@ -46,19 +46,20 @@ def _run_script(name: str):
             cwd=str(SCRIPTS_DIR),
             env={**os.environ, "PYTHONPATH": str(SCRIPTS_DIR)},
         )
-        # 将脚本 stdout 中含有关键词的行提升到 INFO，其余保持 DEBUG（避免日志爆量）
-        _keywords = ("✅", "❌", "⚠️", "注册", "修正", "无法读取", "Agent", "soul", "SOUL", "error", "Error", "warning", "Warning")
-        for line in (result.stdout or "").splitlines():
-            line = line.strip()
-            if not line:
+        # Python logging 默认写到 stderr，stdout 通常为空；两路都转发
+        # 含关键词的行提升到 INFO，其余保持 DEBUG（避免日志爆量）
+        _keywords = ("✅", "❌", "⚠️", "注册", "修正", "无法读取", "Agent", "soul", "SOUL",
+                     "error", "Error", "warning", "Warning", "跳过", "失败", "写入")
+        for stream_line in ((result.stdout or "") + (result.stderr or "")).splitlines():
+            stream_line = stream_line.strip()
+            if not stream_line:
                 continue
-            if any(kw in line for kw in _keywords):
-                log.info(f"[{name}] {line}")
+            if any(kw in stream_line for kw in _keywords):
+                log.info(f"[{name}] {stream_line}")
             else:
-                log.debug(f"[{name}] {line}")
+                log.debug(f"[{name}] {stream_line}")
         if result.returncode != 0:
-            stderr = (result.stderr or "")[:800]
-            log.warning(f"❌ {name} 退出码 {result.returncode}: {stderr}")
+            log.warning(f"❌ {name} 退出码 {result.returncode}")
         else:
             log.info(f"✅ {name} 完成")
     except subprocess.TimeoutExpired:
