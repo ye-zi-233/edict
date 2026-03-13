@@ -11,6 +11,7 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
+      TZ: ${TZ:-Asia/Shanghai}
       POSTGRES_DB: ${POSTGRES_DB:-edict}
       POSTGRES_USER: ${POSTGRES_USER:-edict}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-edict_secret_change_me}
@@ -27,6 +28,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
     # ports:
     #   - "6379:6379"
     volumes:
@@ -49,6 +52,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
+      TZ: ${TZ:-Asia/Shanghai}
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
@@ -97,6 +101,7 @@ services:
       context: ..
       dockerfile: edict/Dockerfile
     environment:
+      TZ: ${TZ:-Asia/Shanghai}
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
@@ -122,6 +127,7 @@ services:
       context: ..
       dockerfile: edict/Dockerfile
     environment:
+      TZ: ${TZ:-Asia/Shanghai}
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
@@ -149,6 +155,7 @@ services:
       context: ..
       dockerfile: edict/Dockerfile
     environment:
+      TZ: ${TZ:-Asia/Shanghai}
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
@@ -177,6 +184,7 @@ services:
       context: ..
       dockerfile: edict/Dockerfile
     environment:
+      TZ: ${TZ:-Asia/Shanghai}
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-edict}:${POSTGRES_PASSWORD:-edict_secret_change_me}@postgres:5432/${POSTGRES_DB:-edict}
@@ -201,6 +209,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
