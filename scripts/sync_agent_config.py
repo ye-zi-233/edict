@@ -115,10 +115,9 @@ def _is_wrong_workspace(ws_str: str, ag_id: str) -> bool:
 
     以下情况视为错误路径：
     1. 空路径
-    2. 与当前 _openclaw_host_ws() 返回值不一致的绝对路径
-       - /home/appuser/... : edict 容器内路径（旧版遗留）
-       - 宿主机绝对路径（如 /volume2/...）：当 OPENCLAW_AGENT_HOME 已设置时，
-         OpenClaw 容器看不到宿主机路径，必须修正为容器内路径
+    2. edict 容器内路径（旧版遗留：/home/appuser/...）
+    3. OPENCLAW_AGENT_HOME 已设置时，任何不以其开头的绝对路径均视为错误
+       - 涵盖宿主机路径（/volume2/...）、其他用户路径（/home/bingsen/...）等
     波浪号路径（~/.openclaw/...）在非 Docker 场景下视为正确，不做修改。
     """
     if not ws_str:
@@ -134,11 +133,10 @@ def _is_wrong_workspace(ws_str: str, ag_id: str) -> bool:
     # edict 容器内错误路径（旧版本写入的 /home/appuser/...）
     if str(p).startswith('/home/appuser/'):
         return True
-    # 宿主机绝对路径：当 OPENCLAW_AGENT_HOME 已设置时视为错误
-    # （OpenClaw 在独立容器内，只能访问自己挂载的路径，不能访问宿主机路径）
+    # OPENCLAW_AGENT_HOME 已设置时，任何不以其开头的绝对路径均需修正
+    # （涵盖宿主机路径、开发者本地路径等所有非 Docker 容器路径）
     agent_home = os.environ.get('OPENCLAW_AGENT_HOME', '').strip()
-    host_home = os.environ.get('OPENCLAW_HOST_HOME', '').strip()
-    if agent_home and host_home and str(p).startswith(host_home):
+    if agent_home and not str(p).startswith(agent_home):
         return True
     return False
 
