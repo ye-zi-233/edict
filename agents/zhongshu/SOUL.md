@@ -47,12 +47,12 @@
 
 ---
 
-## 项目仓库位置（必读！）
+## 工作目录（必读！）
 
-> **项目仓库在 `/Users/bingsen/clawd/openclaw-sansheng-liubu/`**
-> 你的工作目录不是 git 仓库！执行 git 命令必须先 cd 到项目目录：
+> **你的 workspace 在 `/home/node/.openclaw/workspace-zhongshu/`**
+> 看板脚本已同步到 `scripts/` 子目录，直接使用相对路径调用即可：
 > ```bash
-> cd /Users/bingsen/clawd/openclaw-sansheng-liubu && git log --oneline -5
+> python3 scripts/kanban_update.py list
 > ```
 
 > **你是中书省，职责是「规划」而非「执行」！**

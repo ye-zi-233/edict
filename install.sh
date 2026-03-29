@@ -129,10 +129,29 @@ register_agents() {
   log "已备份配置: $OC_CFG.bak.*"
 
   python3 << 'PYEOF'
-import json, pathlib, sys
+import json, pathlib, sys, os
 
 cfg_path = pathlib.Path.home() / '.openclaw' / 'openclaw.json'
 cfg = json.loads(cfg_path.read_text())
+
+def _openclaw_host_ws(ag_id):
+    """返回应写入 openclaw.json 的 workspace 路径。
+
+    OpenClaw 在 Docker 容器内以独立用户（如 node）运行，其 workspace 路径
+    必须是容器内可访问的路径，而非宿主机的真实路径。
+
+    优先级：
+    1. OPENCLAW_AGENT_HOME（OpenClaw 容器内挂载路径，如 /home/node/.openclaw）
+    2. OPENCLAW_HOST_HOME（宿主机绝对路径，兼容旧版无独立 OpenClaw 容器场景）
+    3. 回退到宿主机当前用户 home（非 Docker 场景）
+    """
+    agent_home = os.environ.get('OPENCLAW_AGENT_HOME', '').strip()
+    if agent_home:
+        return f'{agent_home}/workspace-{ag_id}'
+    host_home = os.environ.get('OPENCLAW_HOST_HOME', '').strip()
+    if host_home:
+        return f'{host_home}/workspace-{ag_id}'
+    return str(pathlib.Path.home() / f'.openclaw/workspace-{ag_id}')
 
 AGENTS = [
   {"id": "gongzhu",  "subagents": {"allowAgents": ["zhongshu"]}},
@@ -156,12 +175,12 @@ existing_ids = {a['id'] for a in agents_list}
 added = 0
 for ag in AGENTS:
     ag_id = ag['id']
-    ws = str(pathlib.Path.home() / f'.openclaw/workspace-{ag_id}')
+    ws = _openclaw_host_ws(ag_id)
     if ag_id not in existing_ids:
         entry = {'id': ag_id, 'workspace': ws, **{k:v for k,v in ag.items() if k!='id'}}
         agents_list.append(entry)
         added += 1
-        print(f'  + added: {ag_id}')
+        print(f'  + added: {ag_id}  workspace={ws}')
     else:
         print(f'  ~ exists: {ag_id} (skipped)')
 

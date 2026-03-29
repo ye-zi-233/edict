@@ -35,7 +35,7 @@
 - `sourceUrl` (string, 必需): 远程 URL 或本地文件路径
   - GitHub: `https://raw.githubusercontent.com/user/repo/branch/path/SKILL.md`
   - 任意 HTTPS: `https://example.com/skills/my_skill.md`
-  - 本地: `file:///Users/bingsen/skills/code_review.md` 或 `/Users/bingsen/skills/code_review.md`
+  - 本地: `file:///home/node/.openclaw/workspace/skills/code_review.md` 或 `/home/node/.openclaw/workspace/skills/code_review.md`
 - `description` (string, 可选): skill 的中文描述
 
 **响应成功 (200)：**
@@ -46,7 +46,7 @@
   "skillName": "code_review",
   "agentId": "zhongshu",
   "source": "https://raw.githubusercontent.com/...",
-  "localPath": "/Users/bingsen/.openclaw/workspace-zhongshu/skills/code_review/SKILL.md",
+  "localPath": "/home/node/.openclaw/workspace-zhongshu/skills/code_review/SKILL.md",
   "size": 2048,
   "addedAt": "2026-03-02T14:30:00Z"
 }
@@ -75,7 +75,7 @@
       "agentId": "zhongshu",
       "sourceUrl": "https://raw.githubusercontent.com/org/skills-repo/main/code_review/SKILL.md",
       "description": "代码审查专项技能",
-      "localPath": "/Users/bingsen/.openclaw/workspace-zhongshu/skills/code_review/SKILL.md",
+      "localPath": "/home/node/.openclaw/workspace-zhongshu/skills/code_review/SKILL.md",
       "lastUpdated": "2026-03-02T14:30:00Z",
       "status": "valid"  // valid | invalid | not-found
     }
